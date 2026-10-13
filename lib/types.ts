@@ -55,6 +55,8 @@ export type UserProfile = {
   name: string;
   email: string;
   phone: string;
+  /** Parent's / guardian's mobile — payment receipts go here on WhatsApp. */
+  parentPhone: string;
   classLevel: ClassLevel | "";
   locationId: string;
   batchId: string;

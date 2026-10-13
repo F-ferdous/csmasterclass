@@ -28,7 +28,8 @@ export function StudentOverview() {
   const { user, profile, batch, location, loading } = useStudent();
   const books = useBooks();
   const firstName = (profile?.name || user?.displayName || "there").split(" ")[0];
-  const needsVerify = user?.providerData.some((p) => p.providerId === "password") && !user.emailVerified;
+  // Students who registered with a phone only have no real email to verify.
+  const needsVerify = Boolean(profile?.email) && user?.providerData.some((p) => p.providerId === "password") && !user?.emailVerified;
 
   return (
     <div className="space-y-8">

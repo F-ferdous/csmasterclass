@@ -21,10 +21,12 @@ export type EnrollmentSource = "signup" | "profile" | "admin" | "sync";
 /** enrollments/{id} — one request for a seat in a batch. */
 export type EnrollmentRecord = {
   id: string;
+  /** "" for a new student's registration — their login is created when it's confirmed. */
   uid: string;
   name: string;
   email: string;
   phone: string;
+  parentPhone: string;
   classLevel: ClassLevel | "";
   locationId: string;
   batchId: string;
@@ -66,6 +68,7 @@ export function normalizeEnrollment(id: string, raw: Record<string, unknown>): E
     name: str(raw.name),
     email: str(raw.email),
     phone: str(raw.phone),
+    parentPhone: str(raw.parentPhone),
     classLevel: ["9", "10", "11", "12"].includes(raw.classLevel as string) ? (raw.classLevel as ClassLevel) : "",
     locationId: str(raw.locationId),
     batchId: str(raw.batchId),
@@ -76,6 +79,9 @@ export function normalizeEnrollment(id: string, raw: Record<string, unknown>): E
     decidedAt: date(raw.decidedAt),
   };
 }
+
+/** A new student's registration (no login yet) rather than an existing student's request. */
+export const isRegistration = (r: Pick<EnrollmentRecord, "uid">) => !r.uid;
 
 /** Newest first. */
 export const byNewest = (a: EnrollmentRecord, b: EnrollmentRecord) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0);
@@ -90,20 +96,23 @@ export type Applicant = {
   batchId: string;
 };
 
-/** Cancels this student's open requests/seats (used before a new request or an admin move). */
-async function cancelActive(uid: string) {
+/** Cancels this student's records in the given statuses (all open ones by default), except `keepId`. */
+async function cancelActive(uid: string, statuses: EnrollmentStatus[] = activeStatuses, keepId = "") {
   const snap = await getDocs(query(collection(db(), "enrollments"), where("uid", "==", uid)));
-  const open = snap.docs.filter((d) => activeStatuses.includes(d.data().status));
+  const open = snap.docs.filter((d) => d.id !== keepId && statuses.includes(d.data().status));
   if (!open.length) return;
   const wb = writeBatch(db());
   for (const d of open) wb.update(d.ref, { status: "cancelled", updatedAt: serverTimestamp() });
   await wb.commit();
 }
 
-/** Student side: ask for a seat in a batch (replaces any earlier open request). */
-export async function requestSeat(applicant: Applicant, source: "signup" | "profile") {
+/**
+ * Student side: ask to move to another batch. Replaces any earlier open request but keeps the
+ * confirmed seat — the student stays in their batch until an admin confirms the move.
+ */
+export async function requestSeat(applicant: Applicant, source: "profile") {
   if (!applicant.batchId) return;
-  await cancelActive(applicant.uid);
+  await cancelActive(applicant.uid, ["pending", "waitlisted"]);
   await addDoc(collection(db(), "enrollments"), {
     ...applicant,
     status: "pending",
@@ -129,17 +138,20 @@ export async function placeStudent(applicant: Applicant, source: "admin" | "sync
 }
 
 /**
- * Admin decision on a request. Confirming (optionally into a different batch) also puts
- * the batch on the student's profile; rejecting clears it so they can choose again.
+ * Admin decision on an existing student's request. Confirming (optionally into a different batch)
+ * moves the student and closes their old seat; declining leaves their current batch as it is.
+ * New students' registrations go through decideRegistration (app/student-actions.ts) instead.
  */
 export async function decideEnrollment(
   record: EnrollmentRecord,
   status: Extract<EnrollmentStatus, "confirmed" | "waitlisted" | "rejected">,
   options: { note?: string; batchId?: string; locationId?: string; classLevel?: ClassLevel | "" } = {},
 ) {
+  if (isRegistration(record)) throw new Error("Registrations are decided on the server.");
   const batchId = options.batchId ?? record.batchId;
   const locationId = options.locationId ?? record.locationId;
   const classLevel = options.classLevel ?? record.classLevel;
+  if (status === "confirmed") await cancelActive(record.uid, ["confirmed"], record.id);
   const wb = writeBatch(db());
   wb.update(doc(db(), "enrollments", record.id), {
     status,
@@ -150,9 +162,7 @@ export async function decideEnrollment(
     updatedAt: serverTimestamp(),
     decidedAt: serverTimestamp(),
   });
-  const profile = doc(db(), "users", record.uid);
-  if (status === "confirmed") wb.update(profile, { batchId, locationId, classLevel, updatedAt: serverTimestamp() });
-  if (status === "rejected") wb.update(profile, { batchId: "", updatedAt: serverTimestamp() });
+  if (status === "confirmed") wb.update(doc(db(), "users", record.uid), { batchId, locationId, classLevel, updatedAt: serverTimestamp() });
   await wb.commit();
 }
 

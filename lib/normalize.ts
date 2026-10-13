@@ -56,6 +56,7 @@ export function normalizeProfile(uid: string, raw: Record<string, unknown>): Use
     name: str(raw.name),
     email: str(raw.email),
     phone: str(raw.phone),
+    parentPhone: str(raw.parentPhone),
     classLevel,
     locationId: str(raw.locationId),
     batchId: str(raw.batchId),

@@ -33,7 +33,7 @@ export function StudentShell({ children }: { children: ReactNode }) {
       nav={studentNav}
       subtitle="Student dashboard"
       name={profile?.name || user.displayName || "Student"}
-      email={user.email ?? ""}
+      email={profile?.email || profile?.phone || user.email || ""}
       actions={
         <>
           {isAdmin && (

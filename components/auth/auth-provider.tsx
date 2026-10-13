@@ -54,8 +54,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       stopProfile = onSnapshot(
         doc(db(), "users", user.uid),
         (snap) => {
-          // Accounts created outside the sign-up form (e.g. in the Firebase console) get a profile on first sign-in.
-          if (!snap.exists()) ensureProfile(user).catch(() => {});
+          // Admin accounts created in the Firebase console get a profile on first sign-in.
+          if (!snap.exists() && isAdminEmail(user.email)) ensureProfile(user).catch(() => {});
           const profile = snap.exists() ? normalizeProfile(user.uid, snap.data()) : null;
           const isAdmin = profile?.role === "admin" || isAdminEmail(user.email);
           setState((s) => ({ ...s, user, profile, loading: false, isAdmin }));

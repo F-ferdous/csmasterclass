@@ -1,14 +1,15 @@
 "use client";
 
-import { addDoc, collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { AnimatePresence, motion } from "motion/react";
-import { AlertTriangle, Banknote, Download, MessageCircle, Pencil, Plus, Receipt, Search, Trash2, Wallet } from "lucide-react";
+import { AlertTriangle, Banknote, CheckCircle2, Download, MessageCircle, Pencil, Plus, Receipt, Search, Send, Trash2, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useBooks } from "@/components/dashboard/use-books";
 import { classLevels, normalizeBatch, sortBatches } from "@/lib/coaching";
 import { normalizeEnrollment, type EnrollmentRecord } from "@/lib/enrollments";
 import { db } from "@/lib/firebase";
 import { normalizeProfile } from "@/lib/normalize";
+import { waLink } from "@/lib/phone";
 import {
   bdt,
   dueLabels,
@@ -18,6 +19,7 @@ import {
   normalizePayment,
   paymentMethods,
   paymentTypes,
+  receiptMessage,
   thisMonth,
   todayISO,
   tuitionStatus,
@@ -37,11 +39,11 @@ import { adminInput, Drawer, DrawerBody, DrawerFooter, drawerFormClass, EmptySta
 type View = "dues" | "ledger";
 type DueRow = { user: UserProfile; batch: Batch; status: DueStatus; paid: number; remaining: number };
 
-/** Bangladesh numbers like 01712345678 → 8801712345678 for wa.me links. */
-const waNumber = (phone: string) => {
-  const d = phone.replace(/\D/g, "");
-  return d.startsWith("880") ? d : d.startsWith("0") ? `88${d}` : d;
-};
+/** That month's tuition status for a student — added to receipts so parents see what's left. */
+const tuitionAfter = (p: Pick<Payment, "uid" | "type" | "month">, batch: Batch | undefined, payments: Payment[]) =>
+  p.type === "tuition" && batch?.fee
+    ? tuitionStatus(batch.fee, payments.filter((x) => x.uid === p.uid && x.type === "tuition" && x.month === p.month))
+    : undefined;
 
 const shortDate = (iso: string) => {
   const [y, m, d] = iso.split("-").map(Number);
@@ -83,6 +85,7 @@ export function PaymentsManager() {
 
   const all = payments ?? [];
   const batchById = useMemo(() => new Map(batches.map((b) => [b.id, b])), [batches]);
+  const userById = useMemo(() => new Map(users.map((u) => [u.uid, u])), [users]);
 
   // Tuition dues for the selected month: every confirmed student in a batch that has a fee.
   const running = batches.filter((b) => b.status !== "closed");
@@ -296,9 +299,10 @@ export function PaymentsManager() {
                           <>
                             {r.user.phone && (
                               <a
-                                href={`https://wa.me/${waNumber(r.user.phone)}?text=${encodeURIComponent(
+                                href={waLink(
+                                  r.user.phone,
                                   `Hello ${r.user.name.split(" ")[0] || ""}, this is a friendly reminder that the tuition fee of ${bdt(r.remaining)} for ${monthLabel(month)} (${r.batch.name}) is due. Thank you! — CS Masterclass`,
-                                )}`}
+                                )}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="inline-flex items-center gap-1.5 rounded-full border border-line px-3.5 py-2 text-sm hover:border-ink"
@@ -340,7 +344,10 @@ export function PaymentsManager() {
           />
         ) : (
           <div className="overflow-hidden rounded-3xl border border-line">
-            {ledger.map((p) => (
+            {ledger.map((p) => {
+              const parentPhone = userById.get(p.uid)?.parentPhone;
+              const batch = batchById.get(p.batchId);
+              return (
               <div key={p.id} className="grid gap-2 border-b border-line px-5 py-4 last:border-b-0 md:grid-cols-[80px_1.3fr_1.4fr_auto_auto] md:items-center md:gap-5">
                 <p className="text-sm text-ink-soft">{shortDate(p.receivedOn)}</p>
                 <div className="min-w-0">
@@ -362,6 +369,18 @@ export function PaymentsManager() {
                   {p.method === "waived" ? "Waived" : bdt(p.amount)}
                 </p>
                 <div className="flex gap-0.5 md:justify-end">
+                  {parentPhone && (
+                    <a
+                      href={waLink(parentPhone, receiptMessage(p, { batch, tuition: tuitionAfter(p, batch, all) }))}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label="Send receipt to parent on WhatsApp"
+                      title="Send receipt to parent"
+                      className="grid size-9 place-items-center rounded-full text-forest hover:bg-paper-2"
+                    >
+                      <Send className="size-4" />
+                    </a>
+                  )}
                   <button type="button" onClick={() => setEditing(p)} aria-label="Edit payment" className="grid size-9 place-items-center rounded-full hover:bg-paper-2">
                     <Pencil className="size-4" />
                   </button>
@@ -370,7 +389,8 @@ export function PaymentsManager() {
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
             <div className="flex justify-between bg-paper-2/50 px-5 py-3 text-sm">
               <span className="text-ink-soft">
                 {ledger.length} payment{ledger.length === 1 ? "" : "s"}
@@ -436,6 +456,8 @@ function PaymentForm({
   const [note, setNote] = useState(initial.note ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // A new payment, once saved — the drawer then offers to send the receipt.
+  const [saved, setSaved] = useState<(Pick<Payment, "uid"> & Parameters<typeof receiptMessage>[0]) | null>(null);
 
   const student = users.find((u) => u.uid === uid);
   const batch = student ? batchById.get(initial.batchId || student.batchId) : undefined;
@@ -493,13 +515,22 @@ function PaymentForm({
       updatedAt: serverTimestamp(),
     };
     try {
-      if (initial.id) await setDoc(doc(db(), "payments", initial.id), data, { merge: true });
-      else await addDoc(collection(db(), "payments"), { ...data, createdAt: serverTimestamp() });
-      onDone();
+      if (initial.id) {
+        await setDoc(doc(db(), "payments", initial.id), data, { merge: true });
+        onDone();
+      } else {
+        await addDoc(collection(db(), "payments"), { ...data, createdAt: serverTimestamp() });
+        setSaved(data);
+        setSaving(false);
+      }
     } catch (err) {
       setError((err as Error).message);
       setSaving(false);
     }
+  }
+
+  if (saved && student) {
+    return <ReceiptStep payment={saved} student={student} batch={batch} tuition={tuitionAfter(saved, batch, payments)} onDone={onDone} />;
   }
 
   return (
@@ -645,6 +676,114 @@ function PaymentForm({
         <PrimaryButton onClick={save} loading={saving}>
           {initial.id ? "Save changes" : "Record payment"}
         </PrimaryButton>
+      </DrawerFooter>
+    </div>
+  );
+}
+
+/** Shown after recording a payment: preview the receipt and send it to the parent on WhatsApp. */
+function ReceiptStep({
+  payment,
+  student,
+  batch,
+  tuition,
+  onDone,
+}: {
+  payment: Parameters<typeof receiptMessage>[0];
+  student: UserProfile;
+  batch?: Batch;
+  tuition?: ReturnType<typeof tuitionStatus>;
+  onDone: () => void;
+}) {
+  const [parentPhone, setParentPhone] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const message = receiptMessage(payment, { batch, tuition });
+
+  async function saveParentPhone() {
+    const phone = parentPhone.trim();
+    if (phone.replace(/\D/g, "").length < 10) return setError("Enter the parent's mobile number, e.g. 01712345678.");
+    setSaving(true);
+    setError("");
+    try {
+      // The live users list then picks it up and the Send button appears.
+      await updateDoc(doc(db(), "users", student.uid), { parentPhone: phone, updatedAt: serverTimestamp() });
+    } catch (err) {
+      setError((err as Error).message);
+    }
+    setSaving(false);
+  }
+
+  return (
+    <div className={drawerFormClass}>
+      <DrawerBody>
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-3 rounded-2xl border border-forest/30 bg-forest/10 px-4 py-3.5"
+        >
+          <CheckCircle2 className="size-5 shrink-0 text-forest" aria-hidden />
+          <p className="text-sm">
+            <span className="font-semibold">Payment recorded.</span> Send the receipt to {student.name ? `${student.name.split(" ")[0]}'s` : "the"} parent?
+          </p>
+        </motion.div>
+
+        <div>
+          <p className="mb-1.5 text-sm font-medium">Receipt message</p>
+          <p className="whitespace-pre-wrap rounded-2xl border border-line bg-paper-2/50 px-4 py-3.5 text-sm leading-relaxed">{message}</p>
+        </div>
+
+        {student.parentPhone ? (
+          <p className="text-sm text-ink-soft">
+            Parent&apos;s phone: <span className="font-medium text-ink">{student.parentPhone}</span>
+          </p>
+        ) : (
+          <div className="rounded-2xl border border-gold/40 bg-gold/10 p-4">
+            <p className="flex items-start gap-2 text-sm">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-gold" aria-hidden />
+              No parent&apos;s phone saved for {student.name || "this student"}. Add it once and it&apos;s remembered for next time.
+            </p>
+            <div className="mt-3 flex gap-2">
+              <input
+                type="tel"
+                value={parentPhone}
+                onChange={(e) => setParentPhone(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && saveParentPhone()}
+                placeholder="01XXXXXXXXX"
+                aria-label="Parent's phone"
+                className={adminInput}
+              />
+              <PrimaryButton onClick={saveParentPhone} loading={saving} className="shrink-0">
+                Save
+              </PrimaryButton>
+            </div>
+            <ErrorText message={error} />
+          </div>
+        )}
+      </DrawerBody>
+      <DrawerFooter>
+        <GhostButton onClick={onDone}>{student.parentPhone ? "Skip" : "Done"}</GhostButton>
+        {student.phone && (
+          <a
+            href={waLink(student.phone, message.replace("Dear Parent,", `Dear ${student.name.split(" ")[0] || "Student"},`))}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-line px-4 py-2.5 text-sm transition-colors hover:border-ink"
+          >
+            <MessageCircle className="size-4" aria-hidden /> Send to student
+          </a>
+        )}
+        {student.parentPhone && (
+          <a
+            href={waLink(student.parentPhone, message)}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => setTimeout(onDone, 300)}
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-forest px-5 py-2.5 text-sm font-semibold text-forest-ink transition-colors hover:bg-ink hover:text-paper"
+          >
+            <Send className="size-4" aria-hidden /> Send to parent on WhatsApp
+          </a>
+        )}
       </DrawerFooter>
     </div>
   );

@@ -15,19 +15,16 @@ import {
   reaches,
   sortAnnouncements,
   type Announcement,
-  type AudienceType,
 } from "@/lib/announcements";
-import { classLevels, normalizeBatch, normalizeLocation, sortBatches } from "@/lib/coaching";
+import { normalizeBatch, normalizeLocation, sortBatches } from "@/lib/coaching";
 import { db } from "@/lib/firebase";
 import { normalizeProfile } from "@/lib/normalize";
 import type { Batch, Location, UserProfile } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { audienceError, AudiencePicker, audienceText, type Audience } from "./audience-picker";
 import { adminInput, Drawer, DrawerBody, DrawerFooter, drawerFormClass, EmptyState, ErrorText, Field, GhostButton, PageHeader, PrimaryButton, Segmented, Spinner } from "./ui";
 
 type Tab = "published" | "draft" | "expired" | "all";
-
-const audienceTypes: AudienceType[] = ["all", "class", "batch", "location"];
-const audienceTypeLabels: Record<AudienceType, string> = { all: "Everyone", class: "Classes", batch: "Batches", location: "Centres" };
 
 const blank: Announcement = {
   id: "",
@@ -75,16 +72,8 @@ export function AnnouncementsManager() {
   const batchById = useMemo(() => new Map(batches.map((b) => [b.id, b])), [batches]);
   const locationById = useMemo(() => new Map(locations.map((l) => [l.id, l])), [locations]);
 
-  const audienceLabel = (a: Pick<Announcement, "audienceType" | "audienceValues">) => {
-    if (a.audienceType === "all") return "Everyone";
-    if (!a.audienceValues.length) return "No one selected";
-    if (a.audienceType === "class") return a.audienceValues.map((c) => `Class ${c}`).join(", ");
-    if (a.audienceType === "batch")
-      return a.audienceValues.map((id) => (batchById.get(id) ? `${batchById.get(id)!.name} (Class ${batchById.get(id)!.classLevel})` : "Deleted batch")).join(", ");
-    return a.audienceValues.map((id) => locationById.get(id)?.name ?? "Deleted centre").join(", ");
-  };
-
-  const reachCount = (a: Pick<Announcement, "audienceType" | "audienceValues">) => students.filter((s) => reaches(a as Announcement, s)).length;
+  const audienceLabel = (a: Audience) => audienceText(a, batchById, locationById);
+  const reachCount = (a: Audience) => students.filter((s) => reaches(a, s)).length;
 
   const all = items ?? [];
   const inTab = (a: Announcement) =>
@@ -239,8 +228,8 @@ function AnnouncementForm({
   announcement: Announcement;
   batches: Batch[];
   locations: Location[];
-  audienceLabel: (a: Pick<Announcement, "audienceType" | "audienceValues">) => string;
-  reachCount: (a: Pick<Announcement, "audienceType" | "audienceValues">) => number;
+  audienceLabel: (a: Audience) => string;
+  reachCount: (a: Audience) => number;
   onDone: () => void;
 }) {
   const [draft, setDraft] = useState<Announcement>(announcement);
@@ -248,21 +237,9 @@ function AnnouncementForm({
   const [error, setError] = useState("");
   const set = <K extends keyof Announcement>(key: K, value: Announcement[K]) => setDraft((d) => ({ ...d, [key]: value }));
 
-  const toggleValue = (v: string) =>
-    set("audienceValues", draft.audienceValues.includes(v) ? draft.audienceValues.filter((x) => x !== v) : [...draft.audienceValues, v]);
-
-  const options: { value: string; label: string; hint?: string }[] =
-    draft.audienceType === "class"
-      ? classLevels.map((c) => ({ value: c, label: `Class ${c}` }))
-      : draft.audienceType === "batch"
-        ? batches.filter((b) => b.status !== "closed").map((b) => ({ value: b.id, label: b.name, hint: `Class ${b.classLevel}` }))
-        : draft.audienceType === "location"
-          ? locations.map((l) => ({ value: l.id, label: l.name, hint: l.area }))
-          : [];
-
   async function save(status: "draft" | "published") {
     if (!draft.title.trim()) return setError("Give the announcement a title.");
-    if (draft.audienceType !== "all" && draft.audienceValues.length === 0) return setError(`Choose at least one ${audienceTypeLabels[draft.audienceType].toLowerCase().replace(/s$/, "")}.`);
+    if (audienceError(draft)) return setError(audienceError(draft));
     setSaving(status);
     setError("");
     const data = {
@@ -314,38 +291,13 @@ function AnnouncementForm({
           <Segmented options={priorities} value={draft.priority} onChange={(v) => set("priority", v)} render={(p) => priorityLabels[p]} />
         </Field>
 
-        <div className="rounded-2xl border border-line p-4">
-          <Field label="Who should see it?">
-            <Segmented
-              options={audienceTypes}
-              value={draft.audienceType}
-              onChange={(v) => setDraft((d) => ({ ...d, audienceType: v, audienceValues: [] }))}
-              render={(t) => audienceTypeLabels[t]}
-            />
-          </Field>
-          {options.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {options.map((o) => {
-                const on = draft.audienceValues.includes(o.value);
-                return (
-                  <button
-                    key={o.value}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => toggleValue(o.value)}
-                    className={cn("rounded-xl border px-3 py-2 text-left text-sm transition-colors", on ? "border-ink bg-ink text-paper" : "border-line hover:border-ink")}
-                  >
-                    {o.label}
-                    {o.hint && <span className={cn("block text-[11px]", on ? "opacity-70" : "text-ink-faint")}>{o.hint}</span>}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          <p className="mt-3 flex items-center gap-1.5 text-xs text-ink-soft">
-            <Users className="size-3.5" aria-hidden /> Reaches {reach} student{reach === 1 ? "" : "s"} right now
-          </p>
-        </div>
+        <AudiencePicker
+          value={draft}
+          onChange={(a) => setDraft((d) => ({ ...d, ...a }))}
+          batches={batches}
+          locations={locations}
+          reach={reach}
+        />
 
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label="Show until" hint="Optional">

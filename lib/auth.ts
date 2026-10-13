@@ -1,106 +1,80 @@
 "use client";
 
 import {
-  createUserWithEmailAndPassword,
   sendEmailVerification,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
-  signInWithPopup,
   signOut as fbSignOut,
-  updateProfile,
   type User,
 } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { lookupLogin } from "@/app/student-actions";
 import { db } from "./firebase";
-import { auth, googleProvider } from "./firebase-client";
+import { auth } from "./firebase-client";
 import type { ClassLevel } from "./types";
-import { requestSeat } from "./enrollments";
-
-export type SignUpInput = {
-  name: string;
-  email: string;
-  password: string;
-  phone: string;
-  classLevel: ClassLevel | "";
-  locationId: string;
-  batchId: string;
-};
 
 /** Class, centre and batch chosen on the Join form. */
-export type Enrollment = Pick<SignUpInput, "classLevel" | "locationId" | "batchId">;
+export type Enrollment = { classLevel: ClassLevel | ""; locationId: string; batchId: string };
 
 /**
- * Creates users/{uid} the first time someone signs in (every new account is a student).
- * Returns true when a new profile was created.
+ * Gives an admin account made in the Firebase console a users/{uid} profile on first sign-in.
+ * (Student profiles are created on the server when their registration is confirmed.)
  */
-export async function ensureProfile(user: User, extra: Partial<Omit<SignUpInput, "password" | "email">> = {}) {
+export async function ensureProfile(user: User) {
   const ref = doc(db(), "users", user.uid);
   if ((await getDoc(ref)).exists()) return false;
   await setDoc(ref, {
-    name: extra.name || user.displayName || "",
+    name: user.displayName || "",
     email: user.email ?? "",
-    phone: extra.phone ?? "",
-    classLevel: extra.classLevel ?? "",
-    locationId: extra.locationId ?? "",
-    batchId: extra.batchId ?? "",
+    phone: "",
+    parentPhone: "",
+    classLevel: "",
+    locationId: "",
+    batchId: "",
     photoURL: user.photoURL ?? "",
-    role: "student",
+    role: "admin",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
   return true;
 }
 
-export async function signUpWithEmail(input: SignUpInput) {
-  const cred = await createUserWithEmailAndPassword(auth(), input.email.trim(), input.password);
-  await updateProfile(cred.user, { displayName: input.name.trim() });
-  await ensureProfile(cred.user, {
-    name: input.name.trim(),
-    phone: input.phone.trim(),
-    classLevel: input.classLevel,
-    locationId: input.locationId,
-    batchId: input.batchId,
-  });
-  // Ask for a seat in the chosen batch — an admin confirms it in Enrollments.
-  await requestSeat(
-    {
-      uid: cred.user.uid,
-      name: input.name.trim(),
-      email: cred.user.email ?? input.email.trim(),
-      phone: input.phone.trim(),
-      classLevel: input.classLevel,
-      locationId: input.locationId,
-      batchId: input.batchId,
-    },
-    "signup",
-  ).catch(() => {});
-  // Not critical — the account works without it, and it can be re-sent from /account.
-  sendEmailVerification(cred.user).catch(() => {});
-  return cred.user;
-}
+/** An error the sign-in form can explain (see authErrorMessage); `detail` is shown with it. */
+const appError = (code: string, detail = "") => Object.assign(new Error(code), { code, detail });
 
-export async function signInWithEmail(email: string, password: string) {
-  const cred = await signInWithEmailAndPassword(auth(), email.trim(), password);
-  return cred.user;
-}
+const lookupError = (found: Exclude<Awaited<ReturnType<typeof lookupLogin>>, { status: "ok" }>) =>
+  appError(lookupErrors[found.status], found.status === "rejected" ? found.note : "");
 
-/** Google sign-in. On the Join form, the chosen class/centre/batch are saved for new accounts. */
-export async function signInWithGoogle(enrollment?: Enrollment) {
-  const cred = await signInWithPopup(auth(), googleProvider());
-  const created = await ensureProfile(cred.user, enrollment ?? {});
-  if (created && enrollment?.batchId) {
-    await requestSeat(
-      {
-        uid: cred.user.uid,
-        name: cred.user.displayName ?? "",
-        email: cred.user.email ?? "",
-        phone: "",
-        ...enrollment,
-      },
-      "signup",
-    ).catch(() => {});
+const lookupErrors = {
+  pending: "app/registration-pending",
+  waitlisted: "app/registration-waitlisted",
+  rejected: "app/registration-rejected",
+  unavailable: "app/server-unavailable",
+  invalid: "auth/invalid-credential",
+} as const;
+
+/**
+ * Sign in with an email address or a Bangladeshi mobile number. Emails go straight to Firebase;
+ * otherwise the server finds the account (phone sign-in, a first sign-in after confirmation, or a
+ * registration still waiting for a decision).
+ */
+export async function signIn(identifier: string, password: string) {
+  const id = identifier.trim();
+  if (id.includes("@")) {
+    try {
+      return (await signInWithEmailAndPassword(auth(), id, password)).user;
+    } catch (err) {
+      const code = (err as { code?: string }).code;
+      if (code !== "auth/invalid-credential" && code !== "auth/user-not-found" && code !== "auth/wrong-password") throw err;
+      const found = await lookupLogin(id, password).catch(() => null);
+      if (!found || found.status === "unavailable") throw err;
+      if (found.status !== "ok") throw lookupError(found);
+      return (await signInWithEmailAndPassword(auth(), found.email, password)).user;
+    }
   }
-  return cred.user;
+  const found = await lookupLogin(id, password);
+  if (found.status !== "ok") throw lookupError(found);
+  return (await signInWithEmailAndPassword(auth(), found.email, password)).user;
 }
 
 export function resetPassword(email: string) {
@@ -124,24 +98,26 @@ export function safeNext(next: string | null | undefined, fallback = "/dashboard
 /** Friendly messages for the Firebase Auth errors people actually hit. */
 export function authErrorMessage(err: unknown) {
   const code = (err as { code?: string })?.code ?? "";
+  const detail = (err as { detail?: string })?.detail ?? "";
   switch (code) {
     case "auth/invalid-credential":
     case "auth/wrong-password":
     case "auth/user-not-found":
-      return "That email and password don't match. Try again or reset your password.";
-    case "auth/email-already-in-use":
-      return "An account already exists with this email. Sign in instead.";
+      return "That email/phone and password don't match. Try again or reset your password.";
+    case "app/registration-pending":
+      return "Your registration is waiting for your teacher to confirm your seat. You can sign in once it's confirmed.";
+    case "app/registration-waitlisted":
+      return "You're on the waiting list for this batch. You can sign in once your seat is confirmed.";
+    case "app/registration-rejected":
+      return `Your registration wasn't accepted${detail ? ` — “${detail}”` : ""}. Please contact your teacher, or register again for another batch.`;
+    case "app/server-unavailable":
+      return "Phone sign-in isn't available right now. Try your email address, or contact your teacher.";
     case "auth/invalid-email":
       return "Please enter a valid email address.";
     case "auth/weak-password":
       return "Choose a stronger password — at least 6 characters.";
     case "auth/too-many-requests":
       return "Too many attempts. Please wait a moment and try again.";
-    case "auth/popup-closed-by-user":
-    case "auth/cancelled-popup-request":
-      return "";
-    case "auth/popup-blocked":
-      return "Your browser blocked the Google sign-in window. Allow pop-ups and try again.";
     case "auth/operation-not-allowed":
       return "This sign-in method isn't enabled yet in Firebase Authentication.";
     case "auth/network-request-failed":

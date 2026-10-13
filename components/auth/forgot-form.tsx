@@ -59,7 +59,7 @@ export function ForgotForm() {
         <div className="mt-10">
           <p className="eyebrow">Account recovery</p>
           <h1 className="mt-3 font-display text-4xl sm:text-5xl">Forgot password?</h1>
-          <p className="mt-3 text-ink-soft">Enter the email you signed up with and we&apos;ll send you a reset link.</p>
+          <p className="mt-3 text-ink-soft">Enter the email you registered with and we&apos;ll send you a reset link.</p>
           <div className="mt-8">
             {!configured ? (
               <NotConfiguredNote />
@@ -79,7 +79,7 @@ export function ForgotForm() {
                 <ErrorNote message={error} />
                 <SubmitButton loading={state === "loading"}>Send reset link</SubmitButton>
                 <p className="text-center text-sm text-ink-soft">
-                  Signed up with Google? Use <span className="font-medium text-ink">Continue with Google</span> on the sign-in page instead.
+                  Registered with your mobile number only? Ask your teacher to set a new password for you.
                 </p>
               </form>
             )}

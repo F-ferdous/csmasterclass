@@ -97,3 +97,43 @@ export function tuitionStatus(fee: number, monthPayments: Payment[]): { status: 
   if (paid > 0) return { status: "partial", paid, remaining: Math.max(0, fee - paid) };
   return { status: "unpaid", paid: 0, remaining: fee };
 }
+
+export function dateLabel(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return y ? new Date(y, m - 1, d).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : iso;
+}
+
+type ReceiptPayment = Pick<Payment, "studentName" | "type" | "month" | "description" | "amount" | "method" | "reference" | "receivedOn">;
+
+/**
+ * WhatsApp receipt for a parent. `batch` adds the class/batch line; `tuition` (that month's
+ * status after this payment) adds whether the month is now fully paid.
+ */
+export function receiptMessage(
+  p: ReceiptPayment,
+  { batch, tuition }: { batch?: { classLevel: string; name: string }; tuition?: { status: DueStatus; remaining: number } } = {},
+) {
+  const student = `${p.studentName || "your child"}${batch ? ` (Class ${batch.classLevel} · ${batch.name})` : ""}`;
+  const what = p.description || (p.type === "tuition" ? `Tuition — ${monthLabel(p.month)}` : typeLabels[p.type]);
+
+  if (p.method === "waived") {
+    return [`Dear Parent,`, ``, `This is to confirm that the following fee has been waived for ${student}:`, what, ``, `— CS Masterclass`].join("\n");
+  }
+
+  const lines = [
+    `Dear Parent,`,
+    ``,
+    `We have received a payment for ${student}.`,
+    ``,
+    `Payment: ${what}`,
+    `Amount: ${bdt(p.amount)}`,
+    `Paid by: ${methodLabels[p.method]}${p.reference ? ` (Ref: ${p.reference})` : ""}`,
+    `Date: ${dateLabel(p.receivedOn)}`,
+  ];
+  if (p.type === "tuition" && tuition) {
+    if (tuition.status === "paid") lines.push(``, `Tuition for ${monthLabel(p.month)} is now fully paid.`);
+    else if (tuition.status === "partial" && tuition.remaining > 0) lines.push(``, `Remaining for ${monthLabel(p.month)}: ${bdt(tuition.remaining)}.`);
+  }
+  lines.push(``, `Thank you.`, `— CS Masterclass`);
+  return lines.join("\n");
+}

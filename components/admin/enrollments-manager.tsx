@@ -2,27 +2,27 @@
 
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { AnimatePresence, motion } from "motion/react";
-import { Check, ClipboardCheck, ListOrdered, Loader2, RefreshCw, Search, X } from "lucide-react";
+import { Check, ClipboardCheck, ListOrdered, Loader2, Search, UserPlus, X } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { EnrollmentPicker } from "@/components/auth/enrollment-picker";
 import { refreshCoaching } from "@/app/actions";
+import { decideRegistration } from "@/app/student-actions";
 import type { Enrollment } from "@/lib/auth";
 import { classLevels, groupSessions, normalizeBatch, normalizeLocation, sortBatches } from "@/lib/coaching";
 import {
-  activeStatuses,
   byNewest,
   decideEnrollment,
   enrollmentStatusLabels,
   enrollmentStatusStyles,
+  isRegistration,
   markBatchFull,
   normalizeEnrollment,
-  placeStudent,
   type EnrollmentRecord,
   type EnrollmentSource,
 } from "@/lib/enrollments";
 import { db } from "@/lib/firebase";
-import { normalizeProfile } from "@/lib/normalize";
-import type { Batch, ClassLevel, Location, UserProfile } from "@/lib/types";
+import { auth } from "@/lib/firebase-client";
+import type { Batch, ClassLevel, Location } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { adminInput, Drawer, DrawerBody, DrawerFooter, drawerFormClass, EmptyState, ErrorText, Field, GhostButton, PageHeader, PrimaryButton, Spinner } from "./ui";
 
@@ -37,7 +37,7 @@ const tabs: { id: Tab; label: string }[] = [
 ];
 
 const sourceLabels: Record<EnrollmentSource, string> = {
-  signup: "Joined the site",
+  signup: "Registered on the site",
   profile: "Changed batch",
   admin: "Placed by admin",
   sync: "Existing student",
@@ -46,13 +46,24 @@ const sourceLabels: Record<EnrollmentSource, string> = {
 const inTab = (r: EnrollmentRecord, tab: Tab) =>
   tab === "all" ? true : tab === "closed" ? r.status === "rejected" || r.status === "cancelled" : r.status === tab;
 
+type Decision = "confirmed" | "waitlisted" | "rejected";
+type Placement = { batchId?: string; locationId?: string; classLevel?: ClassLevel | ""; note?: string };
+
+/** Registrations (no login yet) are decided on the server, which creates the login on confirm. */
+async function decide(r: EnrollmentRecord, status: Decision, options: Placement = {}) {
+  if (!isRegistration(r)) return decideEnrollment(r, status, options);
+  const token = await auth().currentUser?.getIdToken();
+  if (!token) throw new Error("Please sign in again.");
+  const result = await decideRegistration(token, r.id, status, options);
+  if (!result.ok) throw new Error(`${r.name || r.phone}: ${result.error}`);
+}
+
 const formatDate = (d: Date | null) => (d ? d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "—");
 
 export function EnrollmentsManager() {
   const [records, setRecords] = useState<EnrollmentRecord[] | null>(null);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
-  const [users, setUsers] = useState<UserProfile[]>([]);
   const [tab, setTab] = useState<Tab>("pending");
   const [search, setSearch] = useState("");
   const [classFilter, setClassFilter] = useState<ClassLevel | "all">("all");
@@ -73,7 +84,6 @@ export function EnrollmentsManager() {
       onSnapshot(query(collection(d, "locations"), orderBy("order", "asc")), (snap) =>
         setLocations(snap.docs.map((x) => normalizeLocation(x.id, x.data()))),
       ),
-      onSnapshot(collection(d, "users"), (snap) => setUsers(snap.docs.map((x) => normalizeProfile(x.id, x.data())))),
     ];
     return () => stops.forEach((s) => s());
   }, []);
@@ -84,11 +94,6 @@ export function EnrollmentsManager() {
 
   const confirmedIn = (batchId: string) => all.filter((r) => r.batchId === batchId && r.status === "confirmed").length;
   const pendingIn = (batchId: string) => all.filter((r) => r.batchId === batchId && r.status === "pending").length;
-
-  // Students who picked a batch before enrollments existed (no open record for it).
-  const unsynced = users.filter(
-    (u) => u.batchId && batchById.has(u.batchId) && !all.some((r) => r.uid === u.uid && r.batchId === u.batchId && activeStatuses.includes(r.status)),
-  );
 
   const q = search.trim().toLowerCase();
   const filtered = all.filter(
@@ -117,7 +122,7 @@ export function EnrollmentsManager() {
       }
     }
 
-    for (const r of list) await decideEnrollment(r, "confirmed", options);
+    for (const r of list) await decide(r, "confirmed", options);
 
     for (const [batchId, adding] of perBatch) {
       const b = batchById.get(batchId);
@@ -145,20 +150,8 @@ export function EnrollmentsManager() {
   const quickReject = (r: EnrollmentRecord) => {
     const note = window.prompt(`Reason for not accepting ${r.name || r.email} (optional — the student sees this):`, "");
     if (note === null) return;
-    run(`reject-${r.id}`, () => decideEnrollment(r, "rejected", { note }));
+    run(`reject-${r.id}`, () => decide(r, "rejected", { note }));
   };
-
-  async function syncExisting() {
-    if (!window.confirm(`Create confirmed enrollment records for ${unsynced.length} existing student${unsynced.length === 1 ? "" : "s"}?`)) return;
-    await run("sync", async () => {
-      for (const u of unsynced) {
-        await placeStudent(
-          { uid: u.uid, name: u.name, email: u.email, phone: u.phone, classLevel: u.classLevel, locationId: u.locationId, batchId: u.batchId },
-          "sync",
-        );
-      }
-    });
-  }
 
   if (records === null) return <Spinner />;
 
@@ -169,15 +162,7 @@ export function EnrollmentsManager() {
     <div>
       <PageHeader
         title="Enrollments"
-        description="Seat requests from students. Confirm, waitlist or decline — confirmed seats count towards each batch's capacity."
-        actions={
-          unsynced.length > 0 && (
-            <GhostButton onClick={syncExisting}>
-              {busy === "sync" ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-              Sync {unsynced.length} existing student{unsynced.length === 1 ? "" : "s"}
-            </GhostButton>
-          )
-        }
+        description="New registrations and batch-change requests. Confirming a new student creates their login and puts them in the batch — until then they can't sign in. Confirmed seats count towards each batch's capacity."
       />
 
       {/* Capacity */}
@@ -288,7 +273,7 @@ export function EnrollmentsManager() {
               {tab !== "waitlisted" && (
                 <button
                   type="button"
-                  onClick={() => run("bulk-wait", () => Promise.all(selectedRecords.map((r) => decideEnrollment(r, "waitlisted"))))}
+                  onClick={() => run("bulk-wait", () => Promise.all(selectedRecords.map((r) => decide(r, "waitlisted"))))}
                   className="inline-flex items-center gap-1.5 rounded-full border border-paper/30 px-3.5 py-1.5 text-sm"
                 >
                   <ListOrdered className="size-4" aria-hidden /> Waitlist
@@ -312,11 +297,7 @@ export function EnrollmentsManager() {
           <EmptyState
             icon={<ClipboardCheck className="size-6" />}
             title="No enrollment requests yet"
-            body={
-              unsynced.length > 0
-                ? "Students who chose a batch before Enrollments existed aren't listed yet — use “Sync existing students” above."
-                : "When students join or change batch, their requests appear here for you to confirm."
-            }
+            body="When students register or ask to change batch, their requests appear here for you to confirm."
           />
         ) : visible.length === 0 ? (
           <EmptyState icon={<ClipboardCheck className="size-6" />} title={tab === "pending" ? "All caught up" : "Nothing here"} body="No requests match this view." />
@@ -368,11 +349,13 @@ export function EnrollmentsManager() {
                     </div>
                     <div className="min-w-0">
                       <p className="truncate font-medium">{r.name || "Unnamed"}</p>
-                      <p className="truncate text-xs text-ink-soft">
-                        {r.email}
-                        {r.phone ? ` · ${r.phone}` : ""}
-                      </p>
-                      <p className="mt-1 text-xs text-ink-faint">
+                      <p className="truncate text-xs text-ink-soft">{[r.phone, r.email].filter(Boolean).join(" · ")}</p>
+                      <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-ink-faint">
+                        {isRegistration(r) && r.status !== "rejected" && r.status !== "cancelled" && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-series-3/15 px-2 py-0.5 font-medium text-series-3">
+                            <UserPlus className="size-3" aria-hidden /> New student · no login yet
+                          </span>
+                        )}
                         {sourceLabels[r.source]} · {formatDate(r.createdAt)}
                       </p>
                     </div>
@@ -401,7 +384,7 @@ export function EnrollmentsManager() {
                             <Check className="size-4" aria-hidden /> Confirm
                           </ActionButton>
                           {r.status === "pending" && (
-                            <ActionButton loading={busy === `wait-${r.id}`} onClick={() => run(`wait-${r.id}`, () => decideEnrollment(r, "waitlisted"))}>
+                            <ActionButton loading={busy === `wait-${r.id}`} onClick={() => run(`wait-${r.id}`, () => decide(r, "waitlisted"))}>
                               Waitlist
                             </ActionButton>
                           )}
@@ -500,7 +483,7 @@ function ReviewForm({
         const ok = await onConfirm({ ...placement, note });
         if (!ok) return setBusy("");
       } else {
-        await decideEnrollment(record, kind, { ...placement, note });
+        await decide(record, kind, { ...placement, note });
       }
       onDone();
     } catch (err) {
@@ -514,10 +497,8 @@ function ReviewForm({
       <DrawerBody>
         <div>
           <p className="font-display text-2xl">{record.name || "Unnamed student"}</p>
-          <p className="text-sm text-ink-soft">
-            {record.email}
-            {record.phone ? ` · ${record.phone}` : ""}
-          </p>
+          <p className="text-sm text-ink-soft">{[record.phone, record.email].filter(Boolean).join(" · ")}</p>
+          {record.parentPhone && <p className="text-sm text-ink-soft">Parent: {record.parentPhone}</p>}
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
             <span className={cn("rounded-full px-2.5 py-1", enrollmentStatusStyles[record.status])}>{enrollmentStatusLabels[record.status]}</span>
             <span className="text-ink-faint">
@@ -527,7 +508,10 @@ function ReviewForm({
         </div>
 
         <div className="border-t border-line pt-5">
-          <p className="mb-3 text-sm text-ink-soft">Confirm the requested batch, or move the student to another one.</p>
+          <p className="mb-3 text-sm text-ink-soft">
+            Confirm the requested batch, or move the student to another one.
+            {isRegistration(record) && " Confirming creates their login — they sign in with their mobile number (or email) and the password they chose."}
+          </p>
           <EnrollmentPicker value={placement} onChange={setPlacement} locations={locations} batches={batches} loading={false} allowFull />
           {batch && batch.seats > 0 && (
             <p className={cn("mt-3 text-sm", confirmedIn(batch.id) >= batch.seats ? "text-ember" : "text-ink-soft")}>

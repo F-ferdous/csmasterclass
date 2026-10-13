@@ -24,6 +24,7 @@ export function StudentProfile() {
   const name = profile?.name || user.displayName || "Student";
   const initials = name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
   const usesPassword = user.providerData.some((p) => p.providerId === "password");
+  const realEmail = profile ? profile.email : user.email; // phone-only students sign in with a placeholder address
 
   return (
     <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr]">
@@ -35,7 +36,7 @@ export function StudentProfile() {
       >
         <span className="grid size-16 place-items-center rounded-2xl bg-band-accent text-2xl font-medium text-band">{initials}</span>
         <h2 className="mt-6 font-display text-3xl">{name}</h2>
-        <p className="mt-1 break-all text-sm opacity-75">{user.email}</p>
+        <p className="mt-1 break-all text-sm opacity-75">{[realEmail, profile?.phone].filter(Boolean).join(" · ")}</p>
         <p className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-band-ink/20 px-3 py-1 text-xs capitalize">
           {profile?.role ?? "student"}
         </p>
@@ -45,8 +46,8 @@ export function StudentProfile() {
           </div>
         )}
 
-        {usesPassword && !user.emailVerified && <VerifyNotice />}
-        {user.emailVerified && (
+        {realEmail && usesPassword && !user.emailVerified && <VerifyNotice />}
+        {realEmail && user.emailVerified && (
           <p className="mt-6 flex items-center gap-2 text-sm opacity-90">
             <BadgeCheck className="size-4 text-band-accent" aria-hidden /> Email verified
           </p>
@@ -116,11 +117,12 @@ function ProfileForm() {
     setError("");
     try {
       const name = String(data.get("name")).trim();
-      const phone = String(data.get("phone")).trim();
-      await updateDoc(doc(db(), "users", user.uid), { name, phone, ...enrollment, updatedAt: serverTimestamp() });
-      // A different batch is a new seat request for an admin to confirm.
+      const parentPhone = String(data.get("parentPhone")).trim();
+      // Students can only change these two; class, centre and batch change when an admin confirms.
+      await updateDoc(doc(db(), "users", user.uid), { name, parentPhone, updatedAt: serverTimestamp() });
+      // A different batch is a request — the student stays in their current batch until it's confirmed.
       if (enrollment.batchId !== profile?.batchId) {
-        await requestSeat({ uid: user.uid, name, email: user.email ?? "", phone, ...enrollment }, "profile");
+        await requestSeat({ uid: user.uid, name, email: profile?.email ?? "", phone: profile?.phone ?? "", ...enrollment }, "profile");
       }
       setState("saved");
       setTimeout(() => setState("idle"), 2500);
@@ -145,11 +147,19 @@ function ProfileForm() {
       <Field label="Full name">
         <input name="name" required defaultValue={profile?.name ?? user?.displayName ?? ""} className={inputClass} />
       </Field>
-      <Field label="Phone">
-        <input name="phone" type="tel" defaultValue={profile?.phone ?? ""} className={inputClass} placeholder="01XXXXXXXXX" />
-      </Field>
+      <div className="grid gap-6 sm:grid-cols-2">
+        <Field label="Mobile number" hint="Ask your teacher to change it">
+          <input value={profile?.phone ?? ""} readOnly className={`${inputClass} bg-paper-2 text-ink-soft`} placeholder="—" />
+        </Field>
+        <Field label="Parent's / guardian's phone">
+          <input name="parentPhone" type="tel" defaultValue={profile?.parentPhone ?? ""} className={inputClass} placeholder="01XXXXXXXXX" />
+        </Field>
+      </div>
       <div className="border-t border-line pt-6">
         <EnrollmentPicker value={enrollment} onChange={setEnrollment} {...coaching} />
+        {enrollment.batchId !== (profile?.batchId ?? "") && (
+          <p className="mt-3 text-sm text-ink-soft">Saving sends a request to change batch. You stay in your current batch until your teacher confirms it.</p>
+        )}
       </div>
       <ErrorNote message={error} />
       <button

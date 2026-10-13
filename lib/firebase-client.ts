@@ -1,14 +1,22 @@
 "use client";
 
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getStorage } from "firebase/storage";
-import { firebaseApp } from "./firebase";
+import { connectAuthEmulator, getAuth, type Auth } from "firebase/auth";
+import { connectStorageEmulator, getStorage, type FirebaseStorage } from "firebase/storage";
+import { emulatorHost, firebaseApp, useEmulators } from "./firebase";
 
-export const auth = () => getAuth(firebaseApp());
-export const storage = () => getStorage(firebaseApp());
+let authInstance: Auth | undefined;
+let storageInstance: FirebaseStorage | undefined;
 
-export const googleProvider = () => {
-  const provider = new GoogleAuthProvider();
-  provider.setCustomParameters({ prompt: "select_account" });
-  return provider;
+export const auth = () => {
+  if (authInstance) return authInstance;
+  authInstance = getAuth(firebaseApp());
+  if (useEmulators) connectAuthEmulator(authInstance, `http://${emulatorHost}:9399`, { disableWarnings: true });
+  return authInstance;
+};
+
+export const storage = () => {
+  if (storageInstance) return storageInstance;
+  storageInstance = getStorage(firebaseApp());
+  if (useEmulators) connectStorageEmulator(storageInstance, emulatorHost, 9299);
+  return storageInstance;
 };

@@ -8,6 +8,7 @@ export const studentNav: NavGroup[] = [
       { label: "Overview", href: "/dashboard", icon: LayoutDashboard, description: "Your next class, batch and centre at a glance." },
       { label: "Schedule", href: "/dashboard/schedule", icon: CalendarDays, description: "Your weekly class timetable and centre details." },
       { label: "Announcements", href: "/dashboard/announcements", icon: Megaphone, description: "Notices from your teacher — schedule changes, exams and results." },
+      { label: "Study materials", href: "/dashboard/materials", icon: FolderOpen, description: "Notes, worksheets, past papers and videos for your class and batch." },
       { label: "Books", href: "/dashboard/books", icon: BookOpen, description: "Books for your syllabus, with prices and ordering." },
       { label: "Payments", href: "/dashboard/payments", icon: CreditCard, description: "Your tuition fees and book purchases." },
     ],
@@ -18,8 +19,6 @@ export const studentNav: NavGroup[] = [
 
       { label: "Attendance", href: "/dashboard/attendance", icon: ClipboardCheck, soon: true, description: "Your attendance record for every class." },
       { label: "Progress", href: "/dashboard/progress", icon: TrendingUp, soon: true, description: "Test scores and mock exam results over time." },
-      { label: "Study materials", href: "/dashboard/materials", icon: FolderOpen, soon: true, description: "Class notes, worksheets and past papers for your batch." },
-
     ],
   },
   {

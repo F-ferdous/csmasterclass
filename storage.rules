@@ -16,5 +16,23 @@ service firebase.storage {
         && request.resource.size < 8 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
     }
+
+    // Study material files: resources/{resourceId}/{file}. Readable by the students the
+    // resources/{resourceId} document targets (same audienceKeys check as firestore.rules).
+    function canSeeResource(resourceId) {
+      let r = firestore.get(/databases/(default)/documents/resources/$(resourceId)).data;
+      let p = firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+      return r.audienceKeys.hasAny(['all', 'class:' + p.get('classLevel', ''), 'batch:' + p.get('batchId', ''), 'location:' + p.get('locationId', '')]);
+    }
+
+    match /resources/{resourceId}/{file} {
+      allow read: if request.auth != null && (isAdmin() || canSeeResource(resourceId));
+      allow create, update: if isAdmin()
+        && request.resource.size < 50 * 1024 * 1024
+        && (request.resource.contentType.matches('image/.*')
+          || request.resource.contentType.matches('application/(pdf|msword|vnd\\.openxmlformats-officedocument\\..*|vnd\\.ms-.*)')
+          || request.resource.contentType == 'text/plain');
+      allow delete: if isAdmin();
+    }
   }
 }

@@ -21,24 +21,19 @@ service cloud.firestore {
       return e is string && e.size() < 255 && e.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$');
     }
 
-    function profileFields() {
-      return ['name', 'email', 'phone', 'classLevel', 'locationId', 'batchId', 'photoURL', 'role', 'createdAt', 'updatedAt'];
-    }
-
     // ── Accounts ───────────────────────────────────────────────
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
 
-      // Everyone signs up as a student.
-      allow create: if signedIn() && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(profileFields())
-        && request.resource.data.role == 'student';
+      // Student profiles are created on the server when an admin confirms a registration
+      // (app/student-actions.ts); only admins create them from the browser.
+      allow create: if isAdmin();
 
-      // Users may edit their own profile but never their role; admins may edit anything.
+      // Students may change only their name and parent's phone. Class, centre, batch (what decides
+      // which materials they see), sign-in phone and role are set by admins.
       allow update: if isAdmin() || (
         signedIn() && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(profileFields())
-        && request.resource.data.role == resource.data.role
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'parentPhone', 'photoURL', 'updatedAt'])
       );
 
       allow delete: if isAdmin();
@@ -55,17 +50,18 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Seat requests. Students create their own pending request and may cancel it;
-    // only admins confirm, waitlist or decline.
+    // Seat requests. New students' registrations are written by the server (uid ""), so the
+    // browser can only add batch-change requests for an existing account. Only admins decide.
     match /enrollments/{id} {
       allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
 
       allow create: if isAdmin() || (
         signedIn()
         && request.resource.data.uid == request.auth.uid
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
         && request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'phone', 'classLevel', 'locationId', 'batchId', 'status', 'source', 'note', 'createdAt', 'updatedAt'])
         && request.resource.data.status == 'pending'
-        && request.resource.data.source in ['signup', 'profile']
+        && request.resource.data.source == 'profile'
         && request.resource.data.note == ''
         && exists(/databases/$(database)/documents/batches/$(request.resource.data.batchId))
       );
@@ -80,6 +76,11 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Scrypt password hashes for registrations awaiting a decision. Server only.
+    match /enrollmentSecrets/{id} {
+      allow read, write: if false;
+    }
+
     // Class registers: attendance/{batchId}_{date}. Holds every student in the batch, so admins only.
     match /attendance/{id} {
       allow read, write: if isAdmin();
@@ -89,6 +90,18 @@ service cloud.firestore {
     // drafts are admin-only.
     match /announcements/{id} {
       allow read: if isAdmin() || (signedIn() && resource.data.status == 'published');
+      allow write: if isAdmin();
+    }
+
+    // Study materials. A student can read only items whose audienceKeys include one of theirs
+    // ("all", "class:10", "batch:<id>", "location:<id>"). Hidden items have no keys, so never match.
+    function myAudienceKeys() {
+      let p = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return ['all', 'class:' + p.get('classLevel', ''), 'batch:' + p.get('batchId', ''), 'location:' + p.get('locationId', '')];
+    }
+
+    match /resources/{id} {
+      allow read: if isAdmin() || (signedIn() && resource.data.audienceKeys.hasAny(myAudienceKeys()));
       allow write: if isAdmin();
     }
 

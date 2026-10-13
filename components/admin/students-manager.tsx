@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { AnimatePresence, motion } from "motion/react";
-import { AlertTriangle, ChevronRight, Download, GraduationCap, Mail, MessageCircle, Phone, Search, ShieldCheck, X } from "lucide-react";
+import { AlertTriangle, ChevronRight, Download, GraduationCap, KeyRound, Mail, MessageCircle, Phone, Search, ShieldCheck, X } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { EnrollmentPicker } from "@/components/auth/enrollment-picker";
 import { isAdminEmail } from "@/lib/admins";
@@ -11,6 +11,9 @@ import type { Enrollment } from "@/lib/auth";
 import { placeStudent } from "@/lib/enrollments";
 import { classLevels, groupSessions } from "@/lib/coaching";
 import { db } from "@/lib/firebase";
+import { auth } from "@/lib/firebase-client";
+import { phoneKey, waLink } from "@/lib/phone";
+import { setStudentPassword } from "@/app/student-actions";
 import type { Batch, ClassLevel, Location } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { adminInput, Drawer, DrawerBody, DrawerFooter, drawerFormClass, EmptyState, ErrorText, Field, GhostButton, PageHeader, PrimaryButton, Spinner } from "./ui";
@@ -19,14 +22,6 @@ import { useStudentsData, type StudentRow } from "./use-students";
 type RoleFilter = "student" | "admin" | "all";
 
 const formatDate = (d: Date | null) => (d ? d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—");
-
-/** Bangladesh numbers like 01712345678 → 8801712345678 for wa.me links. */
-const whatsappNumber = (phone: string) => {
-  const digits = phone.replace(/\D/g, "");
-  if (digits.startsWith("880")) return digits;
-  if (digits.startsWith("0")) return `88${digits}`;
-  return digits;
-};
 
 export function StudentsManager() {
   const router = useRouter();
@@ -54,7 +49,7 @@ export function StudentsManager() {
       (classFilter === "all" || s.classLevel === classFilter) &&
       (locationFilter === "all" || s.locationId === locationFilter) &&
       (batchFilter === "all" || (batchFilter === "none" ? !batchById.has(s.batchId) : s.batchId === batchFilter)) &&
-      (!q || [s.name, s.email, s.phone].some((v) => v.toLowerCase().includes(q))),
+      (!q || [s.name, s.email, s.phone, s.parentPhone].some((v) => v.toLowerCase().includes(q))),
   );
 
   const batchOptions = batches.filter(
@@ -74,11 +69,12 @@ export function StudentsManager() {
 
   function exportCsv() {
     const rows = [
-      ["Name", "Email", "Phone", "Class", "Centre", "Batch", "Role", "Joined"],
+      ["Name", "Email", "Phone", "Parent's phone", "Class", "Centre", "Batch", "Role", "Joined"],
       ...visible.map((s) => [
         s.name,
         s.email,
         s.phone,
+        s.parentPhone,
         s.classLevel,
         locationName.get(s.locationId) ?? "",
         batchById.get(s.batchId)?.name ?? "",
@@ -302,7 +298,13 @@ function StudentForm({ student, locations, batches, onDone }: { student: Student
     try {
       const name = String(f.get("name")).trim();
       const phone = String(f.get("phone")).trim();
-      await updateDoc(doc(db(), "users", student.uid), { name, phone, ...enrollment, role: newRole, updatedAt: serverTimestamp() });
+      const parentPhone = String(f.get("parentPhone")).trim();
+      if (phone && !phoneKey(phone)) {
+        setSaving(false);
+        return setError("Enter a Bangladeshi mobile number, e.g. 01712345678.");
+      }
+      // phoneKey is what the student signs in with.
+      await updateDoc(doc(db(), "users", student.uid), { name, phone, phoneKey: phoneKey(phone), parentPhone, ...enrollment, role: newRole, updatedAt: serverTimestamp() });
       // Moving a student yourself counts as a confirmed seat (and closes their old request).
       if (enrollment.batchId && enrollment.batchId !== student.batchId) {
         await placeStudent({ uid: student.uid, name, email: student.email, phone, ...enrollment }, "admin");
@@ -337,7 +339,7 @@ function StudentForm({ student, locations, batches, onDone }: { student: Student
                 <Phone className="size-4" aria-hidden /> Call
               </a>
               <a
-                href={`https://wa.me/${whatsappNumber(student.phone)}`}
+                href={waLink(student.phone)}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-full border border-line px-3.5 py-2 text-sm hover:border-ink"
@@ -345,6 +347,16 @@ function StudentForm({ student, locations, batches, onDone }: { student: Student
                 <MessageCircle className="size-4" aria-hidden /> WhatsApp
               </a>
             </>
+          )}
+          {student.parentPhone && (
+            <a
+              href={waLink(student.parentPhone)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-full border border-line px-3.5 py-2 text-sm hover:border-ink"
+            >
+              <MessageCircle className="size-4" aria-hidden /> WhatsApp parent
+            </a>
           )}
         </div>
 
@@ -356,6 +368,9 @@ function StudentForm({ student, locations, batches, onDone }: { student: Student
             <input name="phone" type="tel" defaultValue={student.phone} className={adminInput} placeholder="01XXXXXXXXX" />
           </Field>
         </div>
+        <Field label="Parent's / guardian's phone" hint="Payment receipts go here">
+          <input name="parentPhone" type="tel" defaultValue={student.parentPhone} className={adminInput} placeholder="01XXXXXXXXX" />
+        </Field>
         <Field label="Email" hint="Can't be changed here">
           <input value={student.email} readOnly className={cn(adminInput, "bg-paper-2 text-ink-soft")} />
         </Field>
@@ -368,6 +383,8 @@ function StudentForm({ student, locations, batches, onDone }: { student: Student
             </p>
           )}
         </div>
+
+        <PasswordReset uid={student.uid} name={student.name} />
 
         <div className="border-t border-line pt-5">
           <label className="flex items-start justify-between gap-4 rounded-2xl border border-line px-4 py-3.5">
@@ -398,5 +415,62 @@ function StudentForm({ student, locations, batches, onDone }: { student: Student
         </PrimaryButton>
       </DrawerFooter>
     </form>
+  );
+}
+
+/** For students who forget their password (phone-only students can't use the email reset link). */
+function PasswordReset({ uid, name }: { uid: string; name: string }) {
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [state, setState] = useState<"idle" | "saving" | "done">("idle");
+  const [error, setError] = useState("");
+
+  async function save() {
+    if (password.length < 6) return setError("Use at least 6 characters.");
+    setState("saving");
+    setError("");
+    const token = await auth().currentUser?.getIdToken();
+    const result = token ? await setStudentPassword(token, uid, password) : { ok: false as const, error: "Please sign in again." };
+    if (!result.ok) {
+      setError(result.error);
+      return setState("idle");
+    }
+    setState("done");
+  }
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 text-sm underline underline-offset-4">
+        <KeyRound className="size-4" aria-hidden /> Set a new password
+      </button>
+    );
+  }
+  return (
+    <div className="rounded-2xl border border-line p-4">
+      <p className="flex items-center gap-1.5 text-sm font-medium">
+        <KeyRound className="size-4" aria-hidden /> New password for {name || "this student"}
+      </p>
+      {state === "done" ? (
+        <p className="mt-2 text-sm text-forest">Password changed. Tell the student their new password — they can sign in with it now.</p>
+      ) : (
+        <>
+          <div className="mt-3 flex gap-2">
+            <input
+              type="text"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="off"
+              placeholder="At least 6 characters"
+              aria-label="New password"
+              className={adminInput}
+            />
+            <PrimaryButton onClick={save} loading={state === "saving"} className="shrink-0">
+              Set
+            </PrimaryButton>
+          </div>
+          <ErrorText message={error} />
+        </>
+      )}
+    </div>
   );
 }

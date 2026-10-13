@@ -83,7 +83,7 @@ export const todayString = (d = new Date()) =>
 export const isExpired = (a: Announcement, today = todayString()) => Boolean(a.expiresOn) && a.expiresOn < today;
 
 /** Does this announcement apply to this student? */
-export function reaches(a: Announcement, profile: Pick<UserProfile, "classLevel" | "batchId" | "locationId">) {
+export function reaches(a: Pick<Announcement, "audienceType" | "audienceValues">, profile: Pick<UserProfile, "classLevel" | "batchId" | "locationId">) {
   switch (a.audienceType) {
     case "all":
       return true;

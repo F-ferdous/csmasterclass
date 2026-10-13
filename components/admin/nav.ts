@@ -4,6 +4,7 @@ import {
   CalendarClock,
   ClipboardCheck,
   CreditCard,
+  FolderOpen,
   GraduationCap,
   Inbox,
   LayoutDashboard,
@@ -35,6 +36,7 @@ export const adminNav: NavGroup[] = [
     group: "Publishing",
     items: [
       { label: "Books", href: "/admin/books", icon: BookOpen, description: "Publish books, covers, prices and key numbers." },
+      { label: "Resources", href: "/admin/resources", icon: FolderOpen, description: "Notes, worksheets, past papers and video links for classes, batches or centres." },
       { label: "Announcements", href: "/admin/announcements", icon: Megaphone, description: "Notices for students — schedule changes, exams and results." },
     ],
   },

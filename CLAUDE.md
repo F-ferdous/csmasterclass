@@ -63,13 +63,15 @@ must **never appear on the Home page**.
 
 | Collection | Purpose | Access |
 |---|---|---|
-| `users/{uid}` | profile: name, email, phone, classLevel, locationId, batchId, role | own + admin; role only changeable by admin |
+| `users/{uid}` | profile: name, email, phone, **phoneKey** (8801…, used to sign in), **authEmail**, **parentPhone**, classLevel, locationId, batchId (= confirmed batch), role | own read; students may update only name/parentPhone/photoURL; created by server on confirm (or admin) |
 | `locations` | coaching centres | public read, admin write |
 | `batches` | classLevel, locationId, name, board, `sessions[{day,start,end}]` (per-day times), seats, **fee** (BDT/month), status, notes | public read, admin write |
-| `enrollments` | seat requests: pending → confirmed/waitlisted/rejected/cancelled | student creates own pending; admin decides |
+| `enrollments` | registrations (`uid: ""`, source signup, phoneKey, parentPhone — server-written) and batch-change requests (source profile): pending → confirmed/waitlisted/rejected/cancelled | students create own `profile` requests only; admin decides (registrations via server) |
+| `enrollmentSecrets/{id}` | scrypt hash of the password chosen at registration, until first sign-in | server only |
 | `attendance/{batchId}_{YYYY-MM-DD}` | register: `records{uid: present/late/absent/excused}`, note | admin only |
 | `announcements` | title, body, category, priority, audienceType/Values, pinned, status, expiresOn | published readable by signed-in users; admin write |
 | `payments` | tuition/book/admission/other, month, amount (BDT), method, reference, receivedOn | own + admin; admin write |
+| `resources` | study materials: title, description, kind (pdf/doc/image/video/link), url **or** file{path,name,size,contentType} (Storage `resources/{id}/…`), audienceType/Values, **audienceKeys** (`all`, `class:10`, `batch:<id>`, `location:<id>`; empty when hidden), visible | students read only docs whose audienceKeys match their profile (query must be `array-contains-any` of exactly their keys); admin write. Same check in `storage.rules` |
 | `books` | book catalogue (falls back to `lib/seed-books.ts` when empty) | public read, admin write |
 | `messages`, `subscribers` | contact form, newsletter | public create, admin read |
 
@@ -85,18 +87,30 @@ Contact, 404. Favicon, dark/light toggle, Roboto font, pointer cursors.
 Handbook 499/1499 BDT, Topical Question Bank 399/999, Past Paper QP 399/999, Topical Notes 150/chapter
 or 1200 combined, Mock Exam 449/1399; Bundle 1999 soft / 4500 hard (best value, savings computed).
 
-**Auth:** Sign in / Join now (email+password, Google), forgot password, email verification.
-Join requires Class → Centre → Batch (creates a pending enrollment).
+**Auth (students get a login only when an admin confirms them — no Google sign-in):**
+- `/signup` = "Register for a batch": class → centre → batch + name, mobile (required), email (optional), parent phone,
+  password → server action `registerStudent` writes `enrollments/{id}` (status pending, `uid: ""`) + `enrollmentSecrets/{id}`
+  (scrypt hash, no client access). Nothing in Firebase Auth yet.
+- Admin → Enrollments → Confirm → `decideRegistration` (server, checks admin ID token) creates the Auth user (uid = enrollment
+  id, random password; phone-only students get `8801…@phone.cs-masterclass.invalid` as Auth email) + `users/{uid}`.
+  Waitlist and Decline keep the hash (a declined student signing in sees "wasn't accepted" + the admin's note);
+  it's deleted on confirm→first sign-in, admin password reset, or when that phone registers again.
+- Sign-in takes email **or** mobile (`signIn` in `lib/auth.ts`). Phone → server `lookupLogin` finds the account and checks the
+  password via Identity Toolkit REST. First sign-in after confirmation: `lookupLogin` verifies against the hash, sets it as the
+  real Firebase password, deletes the hash. Pending/waitlisted registrations get a clear message.
+- Forgot password: email reset link; phone-only students → Admin → Students → "Set a new password" (`setStudentPassword`).
+- Server code: `app/student-actions.ts` ("use server", every function re-checks its caller), `lib/server/*` (firebase-admin,
+  scrypt). Credentials: `service-account.json` in project root (git-ignored) or `FIREBASE_SERVICE_ACCOUNT_KEY`, else host ADC.
 
 **Student dashboard (`/dashboard`):** Overview (next-class countdown, batch + seat status, centre,
-week timetable, latest announcements, books), Schedule, Announcements, Books, Payments, Profile
-(change batch → new enrollment request). Soon: Attendance, Progress, Study materials.
+week timetable, latest announcements, books), Schedule, Announcements, Study materials (filter by type, YouTube plays in a lightbox), Books, Payments, Profile
+(change batch → new enrollment request). Soon: Attendance, Progress.
 
 **Admin dashboard (`/admin`):** Overview, Batches (per-day times, fee, seats, student counts),
 Locations, Students (search/filter/edit/admin toggle/CSV), Enrollments (confirm/waitlist/decline,
 capacity, bulk, sync existing), Attendance (take register, history grid, rates, CSV),
-Books, Announcements (targeted by class/batch/centre, pin, expiry, preview), Messages, Subscribers,
-Payments (monthly dues, record payments, WhatsApp reminders, ledger, CSV), Reports (KPIs + charts).
+Books, Resources (upload PDF/Word/PPT/Excel/image up to 50 MB, or video/other links; target class/batch/centre; hide/show), Announcements (targeted by class/batch/centre, pin, expiry, preview), Messages, Subscribers,
+Payments (monthly dues, record payments, WhatsApp reminders, WhatsApp receipts to parents after recording + send icon in ledger, ledger, CSV), Reports (KPIs + charts).
 Soon: Orders, Settings.
 
 ## Next up / open items
@@ -105,7 +119,20 @@ Soon: Orders, Settings.
 - Student **Attendance** (private per-student view), **Progress**, **Study materials**.
 - `site.whatsapp` in `lib/site.ts` is empty → "Order" buttons fall back to /contact. Ask the user for the number.
 - Payment instructions for students (bKash/Nagad numbers) not provided yet.
-- Firebase **Storage** not enabled → cover-image uploads in Admin → Books won't work; then deploy `storage.rules`.
+- Firebase **Storage** not enabled (needs Blaze plan — user must do it in the console) → file uploads in Admin → Resources and
+  cover uploads in Admin → Books fail with a friendly message; links work. After enabling: `npx firebase-tools deploy --only storage --project cs-masterclass`.
+- **Needs `service-account.json`** (Firebase console → Project settings → Service accounts → Generate new private key, saved in
+  the project root) before registration / confirming / phone sign-in work locally. Restart the dev server after adding it.
+- Before deploying to App Hosting: its service account needs Firebase Auth admin + Firestore access (check roles).
+- Batch change requests keep the student in their confirmed batch until an admin confirms (`requestSeat` only cancels
+  pending/waitlisted; `decideEnrollment` confirm closes the old confirmed seat). Old "Sync existing students" button removed.
+- Manual end-to-end testing without touching live data: copy the project (`cp -Rc`), give the copy a `.env.local` with
+  `NEXT_PUBLIC_FIREBASE_EMULATORS=1`, project id `demo-cs`, `FIRESTORE_EMULATOR_HOST=127.0.0.1:8181`, `FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9399`,
+  run `npx firebase-tools@13.35.1 emulators:start --only auth,firestore,storage --project demo-cs` there (ports in firebase.json), seed with
+  firebase-admin, and `next dev --port 3100`. Tested 2026-10-13: register → pending msg → confirm/waitlist/decline → phone & email sign-in →
+  materials per batch → batch change → password reset → tampering blocked (all passed).
+- Flow/rules tests: run against emulators (Auth + Firestore + Storage) with firebase-admin pointed at them. Emulator needs Java 21 for current firebase-tools (Mac has 17) → use `npx firebase-tools@13.35.1`; port 8080 is taken by Docker.
 - Placeholder content to replace: testimonials, results, milestones, recognitions (`lib/content.ts`), owner name/email/socials (`lib/site.ts`).
 - Printable payment receipts (suggested, not built).
+- Automatic SMS receipts (needs a BD bulk-SMS account, e.g. BulkSMSBD/Alpha SMS, + server-side API key) — WhatsApp version is built (`receiptMessage` in `lib/payments.ts`).
 - Decide whether to merge `site-build` into `main` and add a GitHub remote (ask the user).

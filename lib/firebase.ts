@@ -1,5 +1,5 @@
 import { getApp, getApps, initializeApp, type FirebaseApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { connectFirestoreEmulator, getFirestore, type Firestore } from "firebase/firestore";
 
 // NEXT_PUBLIC_* vars must be referenced literally so Next.js can inline them.
 const firebaseConfig = {
@@ -20,6 +20,19 @@ export function firebaseApp(): FirebaseApp {
   return getApps().length ? getApp() : initializeApp(firebaseConfig);
 }
 
+/**
+ * NEXT_PUBLIC_FIREBASE_EMULATORS=1 → use the local emulators (ports in firebase.json) instead of the
+ * live project. For testing only; the server side also needs FIRESTORE_EMULATOR_HOST and
+ * FIREBASE_AUTH_EMULATOR_HOST.
+ */
+export const useEmulators = process.env.NEXT_PUBLIC_FIREBASE_EMULATORS === "1";
+export const emulatorHost = "127.0.0.1";
+
+let firestore: Firestore | undefined;
+
 export function db() {
-  return getFirestore(firebaseApp());
+  if (firestore) return firestore;
+  firestore = getFirestore(firebaseApp());
+  if (useEmulators) connectFirestoreEmulator(firestore, emulatorHost, 8181);
+  return firestore;
 }
