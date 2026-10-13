@@ -1,0 +1,200 @@
+import type { Book } from "./types";
+
+/**
+ * The published books, taken from the cover pages in /book-cover pages.
+ * Cover images live in /public/books. Once Firestore holds at least one
+ * book (publish from /admin, or use "Import sample books"), Firestore wins.
+ */
+export const seedBooks: Book[] = [
+  {
+    slug: "complete-student-handbook",
+    title: "The Complete Student Handbook",
+    subtitle: "Computer Science 2210 · Cambridge O Level",
+    syllabus: "Cambridge O Level · 2210",
+    description:
+      "Everything the syllabus asks for, in one book — chapter-by-chapter notes, worked examples, examination technique, graded practice and full answers.",
+    longDescription:
+      "Cambridge O Level Computer Science rewards two quite different things: knowing the subject precisely, and being able to apply it to a problem you have never seen before. This handbook was written to build both. Every learning objective in syllabus 2210 is covered, in the order Cambridge lists it. Ideas are explained in plain language and drawn out in diagrams; each topic then shows a question of the kind the examiners actually set, how to take it apart, and the answer that would earn full marks. First edition, for examination in 2027 and 2028.",
+    category: "Handbook",
+    year: 2026,
+    pages: 234,
+    prices: [
+      { kind: "soft", bdt: 499, usd: 5 },
+      { kind: "hard", bdt: 1499, usd: 15 },
+    ],
+    coverUrl: "/books/complete-student-handbook-front.jpg",
+    backUrl: "/books/complete-student-handbook-back.jpg",
+    coverColor: "#12293F",
+    coverAccent: "#3B8EA0",
+    motif: "gate",
+    facts: [
+      { value: "10", label: "Syllabus topics" },
+      { value: "40+", label: "Original diagrams" },
+      { value: "3", label: "Full mock exams" },
+    ],
+    highlights: [
+      "All ten topics, from data representation to Boolean logic",
+      "Over forty diagrams drawn specially for this book",
+      "Worked examples and Exam Focus panels in every chapter",
+      "Practice questions graded Easy, Medium and Hard, with full answers",
+      "Three complete mock examinations and their mark schemes",
+      "Pseudocode reference and a glossary of key terms",
+    ],
+    buyLinks: [],
+    praise: [],
+    featured: true,
+    status: "published",
+    order: 1,
+  },
+  {
+    slug: "topical-notes-practice-questions",
+    title: "Topical Notes & Practice Questions",
+    subtitle: "The study companion · Read. Recall. Apply.",
+    syllabus: "Cambridge IGCSE / O Level · 0478 / 2210",
+    description:
+      "Make it make sense. Then make it stick. A study companion for focused revision that connects every topic with questions that help you apply your understanding.",
+    longDescription:
+      "Built around a simple rhythm — read the topic, recall the ideas, apply your understanding — this companion covers computer systems, algorithms, programming, databases and Boolean logic across Paper 1 and Paper 2. A little practice, a clearer understanding.",
+    category: "Topical Notes",
+    year: 2026,
+    pages: 0,
+    prices: [
+      { kind: "chapter", bdt: 150, usd: 1.5 },
+      { kind: "combined", bdt: 1200, usd: 12 },
+    ],
+    coverUrl: "/books/topical-notes-practice-questions-front.jpg",
+    backUrl: "/books/topical-notes-practice-questions-back.jpg",
+    coverColor: "#AE4A38",
+    coverAccent: "#EFCB61",
+    motif: "wave",
+    facts: [
+      { value: "P1 + P2", label: "Both papers" },
+      { value: "3", label: "Steps: read · recall · apply" },
+    ],
+    highlights: [
+      "Read the topic — computer systems, algorithms, programming, databases and Boolean logic",
+      "Recall the ideas — revisit concepts and bring together what you have learned",
+      "Apply your understanding — move from notes to focused practice questions",
+      "Written for Paper 1 and Paper 2 of 0478 / 2210",
+    ],
+    buyLinks: [],
+    praise: [],
+    featured: true,
+    status: "published",
+    order: 2,
+  },
+  {
+    slug: "topical-question-bank",
+    title: "Topical Question Bank",
+    subtitle: "Topic by topic · Paper 1 + Paper 2",
+    syllabus: "Cambridge IGCSE / O Level · 0478 / 2210",
+    description:
+      "Find the topic. Build the skill. Real exam questions organised by the 0478 syllabus, so you can practise exactly what you need, one topic at a time.",
+    longDescription:
+      "Questions drawn from 50 Cambridge IGCSE 0478 papers, from February/March 2023 to May/June 2026, and organised by the 2026–2028 syllabus across six areas: data, systems, networks, algorithms, code and logic. Original question wording and mark allocations, readable diagrams and tables, and student answer spaces. Questions only — no answers or worked solutions.",
+    category: "Question Bank",
+    year: 2026,
+    pages: 0,
+    prices: [
+      { kind: "soft", bdt: 399, usd: 4 },
+      { kind: "hard", bdt: 999, usd: 10 },
+    ],
+    coverUrl: "/books/topical-question-bank-front.jpg",
+    backUrl: "/books/topical-question-bank-back.jpg",
+    coverColor: "#007F73",
+    coverAccent: "#DCF26A",
+    motif: "grid",
+    facts: [
+      { value: "471", label: "Questions" },
+      { value: "50", label: "Papers" },
+      { value: "3,750", label: "Marks" },
+    ],
+    highlights: [
+      "Computer systems — data representation, transmission, hardware, software, the internet, automated and emerging technologies",
+      "Algorithms, programming and logic — problem-solving, programming, databases and Boolean logic",
+      "Original question wording and mark allocations",
+      "Readable diagrams and tables, with student answer spaces",
+    ],
+    buyLinks: [],
+    praise: [],
+    featured: true,
+    status: "published",
+    order: 3,
+  },
+  {
+    slug: "past-paper-qp-booklet",
+    title: "Past Paper QP Booklet",
+    subtitle: "One paper at a time · 2023 – 2026",
+    syllabus: "Cambridge IGCSE / O Level · 0478 / 2210",
+    description:
+      "A chronological collection of Computer Science question papers, bringing Paper 1 and Paper 2 together in one volume — February/March 2023 to May/June 2026.",
+    longDescription:
+      "Every paper is arranged by year, session and variant, with the original examination pages kept intact: instructions, questions, marks and answer spaces. Clickable contents and PDF bookmarks take you straight to any paper. The collection contains 0478 papers and suits both IGCSE and O Level practice. Questions only — no answers or worked solutions.",
+    category: "Past Papers",
+    year: 2026,
+    pages: 732,
+    prices: [
+      { kind: "soft", bdt: 399, usd: 4 },
+      { kind: "hard", bdt: 999, usd: 10 },
+    ],
+    coverUrl: "/books/past-paper-qp-booklet-front.jpg",
+    backUrl: "/books/past-paper-qp-booklet-back.jpg",
+    coverColor: "#1B2A44",
+    coverAccent: "#C9A15F",
+    motif: "stairs",
+    facts: [
+      { value: "50", label: "Original papers" },
+      { value: "732", label: "Original pages" },
+      { value: "2023–26", label: "Exam sessions" },
+    ],
+    highlights: [
+      "Paper 1 — 25 source papers, arranged by year, session and variant",
+      "Paper 2 — 25 source papers, preserving pseudocode, diagrams and tables",
+      "Original examination pages, with instructions, marks and answer spaces intact",
+      "Clickable contents and PDF bookmarks for every paper",
+    ],
+    buyLinks: [],
+    praise: [],
+    featured: false,
+    status: "published",
+    order: 4,
+  },
+  {
+    slug: "mock-exam-papers",
+    title: "Mock Exam Papers",
+    subtitle: "Practise under pressure. Prepare with confidence.",
+    syllabus: "Cambridge IGCSE & O Level · 0478 / 2210",
+    description:
+      "Ten mock question sets that combine Paper 1 and Paper 2 — practise complete responses and build a consistent examination routine.",
+    longDescription:
+      "Bring your revision together with 10 mock sets covering computer systems, algorithms, programming and logic. Attempt a set, review your progress and identify the topics to revisit. Use the instructions and time limits printed on each mock paper to practise under real exam conditions.",
+    category: "Mock Exams",
+    year: 2026,
+    pages: 0,
+    prices: [
+      { kind: "soft", bdt: 449 },
+      { kind: "hard", bdt: 1399 },
+    ],
+    coverUrl: "/books/mock-exam-papers-front.jpg",
+    backUrl: "/books/mock-exam-papers-back.jpg",
+    coverColor: "#6553A5",
+    coverAccent: "#B8ACE0",
+    motif: "nodes",
+    facts: [
+      { value: "10", label: "Mock sets" },
+      { value: "20", label: "Question papers" },
+      { value: "P1 + P2", label: "Combined practice" },
+    ],
+    highlights: [
+      "10 combined mock sets — each brings together Paper 1 and Paper 2 questions",
+      "Paper 1 — practise applying knowledge and explaining key concepts",
+      "Paper 2 — practise problem-solving, programming and logical reasoning",
+      "A complete practice routine: attempt, review, revisit",
+    ],
+    buyLinks: [],
+    praise: [],
+    featured: false,
+    status: "published",
+    order: 5,
+  },
+];

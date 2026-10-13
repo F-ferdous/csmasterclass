@@ -1,0 +1,127 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Admins: the owner account below (keep in sync with lib/admins.ts), plus any user
+    // whose users/{uid} document has role == "admin" (set in the Firebase console).
+    function isAdmin() {
+      return signedIn() && (
+        request.auth.token.email in ['admin@cs-masterclass.com']
+        || (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function validEmail(e) {
+      return e is string && e.size() < 255 && e.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$');
+    }
+
+    function profileFields() {
+      return ['name', 'email', 'phone', 'classLevel', 'locationId', 'batchId', 'photoURL', 'role', 'createdAt', 'updatedAt'];
+    }
+
+    // ── Accounts ───────────────────────────────────────────────
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+
+      // Everyone signs up as a student.
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(profileFields())
+        && request.resource.data.role == 'student';
+
+      // Users may edit their own profile but never their role; admins may edit anything.
+      allow update: if isAdmin() || (
+        signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(profileFields())
+        && request.resource.data.role == resource.data.role
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    // ── Coaching ───────────────────────────────────────────────
+    match /locations/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /batches/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Seat requests. Students create their own pending request and may cancel it;
+    // only admins confirm, waitlist or decline.
+    match /enrollments/{id} {
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+
+      allow create: if isAdmin() || (
+        signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'phone', 'classLevel', 'locationId', 'batchId', 'status', 'source', 'note', 'createdAt', 'updatedAt'])
+        && request.resource.data.status == 'pending'
+        && request.resource.data.source in ['signup', 'profile']
+        && request.resource.data.note == ''
+        && exists(/databases/$(database)/documents/batches/$(request.resource.data.batchId))
+      );
+
+      allow update: if isAdmin() || (
+        signedIn()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'cancelled'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    // Class registers: attendance/{batchId}_{date}. Holds every student in the batch, so admins only.
+    match /attendance/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // Notices for students. Signed-in users see published ones (audience is filtered in the app);
+    // drafts are admin-only.
+    match /announcements/{id} {
+      allow read: if isAdmin() || (signedIn() && resource.data.status == 'published');
+      allow write: if isAdmin();
+    }
+
+    // Money received, recorded by admins. Students can see only their own payments.
+    match /payments/{id} {
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow write: if isAdmin();
+    }
+
+    // ── Publishing ─────────────────────────────────────────────
+    match /books/{slug} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ── Inbox ──────────────────────────────────────────────────
+    // Contact form: anyone can create a well-formed message; only admins can read.
+    match /messages/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['name', 'email', 'topic', 'message', 'createdAt'])
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() < 200
+        && validEmail(request.resource.data.email)
+        && request.resource.data.topic is string && request.resource.data.topic.size() < 100
+        && request.resource.data.message is string && request.resource.data.message.size() > 0 && request.resource.data.message.size() <= 4000
+        && request.resource.data.createdAt == request.time;
+      allow read, delete: if isAdmin();
+    }
+
+    // Newsletter sign-ups.
+    match /subscribers/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['email', 'createdAt'])
+        && validEmail(request.resource.data.email)
+        && request.resource.data.createdAt == request.time;
+      allow read, delete: if isAdmin();
+    }
+  }
+}
