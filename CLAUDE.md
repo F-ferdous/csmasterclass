@@ -30,7 +30,8 @@ must **never appear on the Home page**.
   `npx firebase-tools deploy --only firestore:rules --project cs-masterclass --dry-run`, then deploy without `--dry-run`.
   CLI is logged in as the owner. `.firebaserc` default project = `cs-masterclass`.
 - Config: `.env.local` (git-ignored) holds the Firebase web config; `apphosting.yaml` has the same for Firebase App Hosting.
-- Nothing has been committed to git beyond the create-next-app initial commit (ask before committing).
+- Git: all work committed on branch **`site-build`** (checkpoint 2026-10-13); `main` still has only the
+  create-next-app commit. No remote is configured. Commit only when the user asks.
 
 ## Conventions (follow these)
 
@@ -107,4 +108,4 @@ Soon: Orders, Settings.
 - Firebase **Storage** not enabled → cover-image uploads in Admin → Books won't work; then deploy `storage.rules`.
 - Placeholder content to replace: testimonials, results, milestones, recognitions (`lib/content.ts`), owner name/email/socials (`lib/site.ts`).
 - Printable payment receipts (suggested, not built).
-- Commit the work to git (only when the user asks).
+- Decide whether to merge `site-build` into `main` and add a GitHub remote (ask the user).
