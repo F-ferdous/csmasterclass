@@ -15,7 +15,9 @@ import { approxGrade, percent } from "@/lib/tests";
 import { GetTheAppCard } from "./app-install";
 import { NextClassCard } from "./next-class";
 import { EnrollmentBadge } from "./enrollment-badge";
+import { bookNeedLabels, suggestBooks } from "@/lib/books";
 import { useBooks } from "./use-books";
+import { Chip } from "./student-books";
 import { useMyHomework } from "./use-homework";
 import { useMyAttendance, useMyResults } from "./use-my-records";
 import { useStudent } from "./use-student";
@@ -32,6 +34,9 @@ const rise = (i: number) => ({
 export function StudentOverview() {
   const { user, profile, batch, location, loading } = useStudent();
   const books = useBooks();
+  const suggested = suggestBooks(books, profile?.classLevel ?? "", profile?.booksOwned ?? []);
+  // Books still to get for their class (must-have first); everything not yet bought when the class has no list.
+  const picks = suggested.planned ? [...suggested.must, ...suggested.optional] : suggested.other;
   const firstName = (profile?.name || user?.displayName || "there").split(" ")[0];
   // Students who registered with a phone only have no real email to verify.
   const needsVerify = Boolean(profile?.email) && user?.providerData.some((p) => p.providerId === "password") && !user?.emailVerified;
@@ -126,20 +131,35 @@ export function StudentOverview() {
               All books
             </Link>
           </div>
-          <div className="grid grid-cols-3 gap-4">
-            {books.slice(0, 3).map((b) => {
-              const from = lowestPrice(b);
-              return (
-                <Link key={b.slug} href={`/books/${b.slug}`} className="group">
-                  <div className="transition-transform duration-500 group-hover:-translate-y-1.5">
-                    <BookCover book={b} sizes="160px" />
-                  </div>
-                  <p className="mt-2.5 line-clamp-2 text-sm font-medium leading-snug">{b.title}</p>
-                  {from && <p className="text-xs text-ink-soft">From {formatBdt(from.bdt)}</p>}
-                </Link>
-              );
-            })}
-          </div>
+          {picks.length === 0 ? (
+            <p className="rounded-2xl bg-paper-2/60 px-4 py-6 text-center text-sm text-ink-soft">
+              You have every book on your list.{" "}
+              <Link href="/dashboard/books" className="text-ink underline underline-offset-4">
+                See your books
+              </Link>
+            </p>
+          ) : (
+            <div className="grid grid-cols-3 gap-4">
+              {picks.slice(0, 3).map((b) => {
+                const from = lowestPrice(b);
+                const need = profile?.classLevel ? b.forClasses[profile.classLevel] : undefined;
+                return (
+                  <Link key={b.slug} href={`/books/${b.slug}`} className="group">
+                    <div className="relative transition-transform duration-500 group-hover:-translate-y-1.5">
+                      <BookCover book={b} sizes="160px" />
+                      {need && (
+                        <span className="absolute left-1.5 top-1.5 scale-90 origin-top-left">
+                          <Chip tone={need}>{bookNeedLabels[need]}</Chip>
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-2.5 line-clamp-2 text-sm font-medium leading-snug">{b.title}</p>
+                    {from && <p className="text-xs text-ink-soft">From {formatBdt(from.bdt)}</p>}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </motion.section>
 
         <motion.section {...rise(5)}>

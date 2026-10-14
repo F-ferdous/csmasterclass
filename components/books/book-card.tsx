@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { motion } from "motion/react";
 import { ArrowUpRight } from "lucide-react";
+import type { ReactNode } from "react";
 import { BookCover } from "./book-cover";
 import { Tilt } from "@/components/motion/tilt";
 import { ease } from "@/components/motion/reveal";
 import type { Book } from "@/lib/types";
 import { formatBdt, lowestPrice } from "@/lib/pricing";
 
-export function BookCard({ book }: { book: Book }) {
+/** `tag` is an optional label pinned to the top-left of the cover panel (e.g. "Must have"). */
+export function BookCard({ book, tag }: { book: Book; tag?: ReactNode }) {
   const from = lowestPrice(book);
   return (
     <Link href={`/books/${book.slug}`} className="group block">
@@ -28,6 +30,7 @@ export function BookCard({ book }: { book: Book }) {
             <BookCover book={book} sizes="(min-width: 1024px) 280px, (min-width: 640px) 40vw, 70vw" />
           </Tilt>
         </motion.div>
+        {tag && <span className="absolute left-4 top-4">{tag}</span>}
         {book.status === "coming-soon" && (
           <span className="absolute right-4 top-4 rounded-full bg-ember px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-paper">
             Coming soon

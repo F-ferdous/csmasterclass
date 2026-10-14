@@ -41,7 +41,12 @@ export type Book = {
   featured: boolean;
   status: BookStatus;
   order: number;
+  /** Which classes are told to get this book on their dashboard. Missing class = not suggested. */
+  forClasses: Partial<Record<ClassLevel, BookNeed>>;
 };
+
+/** How strongly a book is suggested to a class. */
+export type BookNeed = "must" | "optional";
 
 /* ───────────── Accounts & coaching ───────────── */
 
@@ -62,6 +67,8 @@ export type UserProfile = {
   batchId: string;
   photoURL: string;
   role: Role;
+  /** Slugs of books the student has bought — ticked by an admin, hidden from their suggestions. */
+  booksOwned: string[];
 };
 
 /** locations/{id} — a coaching centre. */

@@ -14,7 +14,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <Hero books={byFeature} />
+      <Hero />
       <TopicMarquee />
       <StatsBand />
       <BookShowcase books={byFeature} />

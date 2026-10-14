@@ -1,3 +1,4 @@
+import { bundle } from "./content";
 import { site } from "./site";
 import type { Book, Price, PriceKind } from "./types";
 
@@ -38,4 +39,19 @@ export function orderMessage(bookTitle: string, price?: Price) {
   return price
     ? `Hello! I'd like to order "${bookTitle}" — ${priceLabels[price.kind]} (${formatBdt(price.bdt)}).`
     : `Hello! I'd like to order "${bookTitle}".`;
+}
+
+/** The bundle's books, in the order given. */
+export const bundleBooks = (books: Book[]) => books.filter((b) => b.status !== "draft" && bundle.slugs.includes(b.slug));
+
+/** Each bundle option with what the same books cost separately and the saving. */
+export function bundleTiers(books: Book[]) {
+  const included = bundleBooks(books);
+  return bundle.options.map((option) => {
+    const parts = included.map((b) => wholeBookPrice(b, option.kind));
+    const separate = parts.length && parts.every((p) => p !== undefined) ? parts.reduce<number>((sum, p) => sum + (p ?? 0), 0) : undefined;
+    const saving = separate && separate > option.bdt ? separate - option.bdt : undefined;
+    const percent = saving && separate ? Math.round((saving / separate) * 100) : undefined;
+    return { ...option, separate, saving, percent };
+  });
 }

@@ -6,24 +6,19 @@ import { ArrowUpRight, Check, Sparkles } from "lucide-react";
 import { BookCover } from "@/components/books/book-cover";
 import { ease } from "@/components/motion/reveal";
 import { bundle } from "@/lib/content";
-import { formatBdt, formatUsd, orderHref, priceLabels, wholeBookPrice } from "@/lib/pricing";
+import { bundleBooks, bundleTiers, formatBdt, formatUsd, orderHref, priceLabels } from "@/lib/pricing";
 import type { Book } from "@/lib/types";
 
 /**
- * The all-books bundle, shown as the best-value option. The "separately" price
+ * The 0478 / 2210 bundle, shown as the best-value option. The "separately" price
  * and the saving are worked out from each book's own prices.
  */
 export function BundleOffer({ books }: { books: Book[] }) {
-  const included = books.filter((b) => b.status !== "draft");
-
-  const tiers = bundle.options.map((option) => {
-    const parts = included.map((b) => wholeBookPrice(b, option.kind));
-    const separate = parts.every((p) => p !== undefined) ? parts.reduce<number>((sum, p) => sum + (p ?? 0), 0) : undefined;
-    const saving = separate && separate > option.bdt ? separate - option.bdt : undefined;
-    const percent = saving && separate ? Math.round((saving / separate) * 100) : undefined;
-    const order = orderHref(`Hello! I'd like to order ${bundle.title} — ${priceLabels[option.kind]} (${formatBdt(option.bdt)}).`);
-    return { ...option, separate, saving, percent, order };
-  });
+  const included = bundleBooks(books);
+  const tiers = bundleTiers(books).map((t) => ({
+    ...t,
+    order: orderHref(`Hello! I'd like to order ${bundle.title} — ${priceLabels[t.kind]} (${formatBdt(t.bdt)}).`),
+  }));
 
   return (
     <section id="bundle" className="container-x scroll-mt-24 py-12 sm:py-16">

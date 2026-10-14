@@ -3,10 +3,13 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { AnimatePresence, motion } from "motion/react";
-import { AlertTriangle, ChevronRight, Download, GraduationCap, KeyRound, Mail, MessageCircle, Phone, Search, ShieldCheck, X } from "lucide-react";
+import { AlertTriangle, BookCheck, ChevronRight, Download, GraduationCap, KeyRound, Mail, MessageCircle, Phone, Search, ShieldCheck, X } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { EnrollmentPicker } from "@/components/auth/enrollment-picker";
+import { BookCover } from "@/components/books/book-cover";
+import { useBooks } from "@/components/dashboard/use-books";
 import { isAdminEmail } from "@/lib/admins";
+import { bookNeedLabels } from "@/lib/books";
 import type { Enrollment } from "@/lib/auth";
 import { placeStudent } from "@/lib/enrollments";
 import { classLevels, groupSessions } from "@/lib/coaching";
@@ -14,7 +17,7 @@ import { db } from "@/lib/firebase";
 import { auth } from "@/lib/firebase-client";
 import { phoneKey, waLink } from "@/lib/phone";
 import { setStudentPassword } from "@/app/student-actions";
-import type { Batch, ClassLevel, Location } from "@/lib/types";
+import type { Batch, Book, ClassLevel, Location } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { adminInput, Drawer, DrawerBody, DrawerFooter, drawerFormClass, EmptyState, ErrorText, Field, GhostButton, PageHeader, PrimaryButton, Spinner } from "./ui";
 import { useStudentsData, type StudentRow } from "./use-students";
@@ -27,6 +30,7 @@ export function StudentsManager() {
   const router = useRouter();
   const params = useSearchParams();
   const { students, locations, batches, error } = useStudentsData();
+  const books = useBooks();
 
   const [search, setSearch] = useState("");
   const [role, setRole] = useState<RoleFilter>("student");
@@ -69,7 +73,7 @@ export function StudentsManager() {
 
   function exportCsv() {
     const rows = [
-      ["Name", "Email", "Phone", "Parent's phone", "Class", "Centre", "Batch", "Role", "Joined"],
+      ["Name", "Email", "Phone", "Parent's phone", "Class", "Centre", "Batch", "Role", "Joined", "Books bought"],
       ...visible.map((s) => [
         s.name,
         s.email,
@@ -80,6 +84,7 @@ export function StudentsManager() {
         batchById.get(s.batchId)?.name ?? "",
         s.role,
         s.joined ? s.joined.toISOString().slice(0, 10) : "",
+        books.filter((b) => s.booksOwned.includes(b.slug)).map((b) => b.title).join("; "),
       ]),
     ];
     const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -247,7 +252,7 @@ export function StudentsManager() {
 
       <Drawer open={Boolean(selected)} title="Student" onClose={() => setSelectedId(null)}>
         {selected && (
-          <StudentForm key={selected.uid} student={selected} locations={locations} batches={batches} onDone={() => setSelectedId(null)} />
+          <StudentForm key={selected.uid} student={selected} locations={locations} batches={batches} books={books} onDone={() => setSelectedId(null)} />
         )}
       </Drawer>
     </div>
@@ -276,13 +281,14 @@ function Avatar({ name }: { name: string }) {
   return <span className="grid size-10 shrink-0 place-items-center rounded-full bg-forest text-xs font-semibold text-forest-ink">{initials || "?"}</span>;
 }
 
-function StudentForm({ student, locations, batches, onDone }: { student: StudentRow; locations: Location[]; batches: Batch[]; onDone: () => void }) {
+function StudentForm({ student, locations, batches, books, onDone }: { student: StudentRow; locations: Location[]; batches: Batch[]; books: Book[]; onDone: () => void }) {
   const [enrollment, setEnrollment] = useState<Enrollment>({
     classLevel: student.classLevel,
     locationId: student.locationId,
     batchId: student.batchId,
   });
   const [makeAdmin, setMakeAdmin] = useState(student.role === "admin");
+  const [owned, setOwned] = useState<string[]>(student.booksOwned);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const ownerAdmin = isAdminEmail(student.email);
@@ -304,7 +310,7 @@ function StudentForm({ student, locations, batches, onDone }: { student: Student
         return setError("Enter a Bangladeshi mobile number, e.g. 01712345678.");
       }
       // phoneKey is what the student signs in with.
-      await updateDoc(doc(db(), "users", student.uid), { name, phone, phoneKey: phoneKey(phone), parentPhone, ...enrollment, role: newRole, updatedAt: serverTimestamp() });
+      await updateDoc(doc(db(), "users", student.uid), { name, phone, phoneKey: phoneKey(phone), parentPhone, ...enrollment, role: newRole, booksOwned: owned, updatedAt: serverTimestamp() });
       // Moving a student yourself counts as a confirmed seat (and closes their old request).
       if (enrollment.batchId && enrollment.batchId !== student.batchId) {
         await placeStudent({ uid: student.uid, name, email: student.email, phone, ...enrollment }, "admin");
@@ -384,6 +390,8 @@ function StudentForm({ student, locations, batches, onDone }: { student: Student
           )}
         </div>
 
+        <BooksBought books={books} classLevel={enrollment.classLevel} owned={owned} onChange={setOwned} />
+
         <PasswordReset uid={student.uid} name={student.name} />
 
         <div className="border-t border-line pt-5">
@@ -415,6 +423,49 @@ function StudentForm({ student, locations, batches, onDone }: { student: Student
         </PrimaryButton>
       </DrawerFooter>
     </form>
+  );
+}
+
+/** Tick the books a student has bought — ticked books drop out of their dashboard suggestions. */
+function BooksBought({ books, classLevel, owned, onChange }: { books: Book[]; classLevel: ClassLevel | ""; owned: string[]; onChange: (slugs: string[]) => void }) {
+  const live = books.filter((b) => b.status !== "draft");
+  const rank = (b: Book) => (classLevel && b.forClasses[classLevel] === "must" ? 0 : classLevel && b.forClasses[classLevel] === "optional" ? 1 : 2);
+  const sorted = [...live].sort((a, b) => rank(a) - rank(b) || a.order - b.order);
+  const toggle = (slug: string) => onChange(owned.includes(slug) ? owned.filter((s) => s !== slug) : [...owned, slug]);
+
+  return (
+    <div className="border-t border-line pt-5">
+      <p className="flex items-center justify-between gap-3 text-sm font-medium">
+        <span className="flex items-center gap-1.5">
+          <BookCheck className="size-4 text-forest" aria-hidden /> Books bought
+        </span>
+        <span className="text-xs font-normal text-ink-soft">{owned.filter((s) => live.some((b) => b.slug === s)).length} of {live.length}</span>
+      </p>
+      <p className="mt-0.5 text-xs text-ink-soft">Ticked books stop showing as suggestions on the student&apos;s dashboard.</p>
+      <ul className="mt-3 divide-y divide-line rounded-2xl border border-line">
+        {sorted.map((b) => {
+          const need = classLevel ? b.forClasses[classLevel] : undefined;
+          return (
+            <li key={b.slug}>
+              <label className="flex items-center gap-3 px-3 py-2.5">
+                <span className="w-8 shrink-0">
+                  <BookCover book={b} sizes="32px" className="shadow-none" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm">{b.title}</span>
+                  {need && (
+                    <span className={cn("text-xs", need === "must" ? "text-ember" : "text-ink-soft")}>
+                      {bookNeedLabels[need]} for Class {classLevel}
+                    </span>
+                  )}
+                </span>
+                <input type="checkbox" checked={owned.includes(b.slug)} onChange={() => toggle(b.slug)} className="size-5 shrink-0 accent-[var(--forest)]" />
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 

@@ -1,4 +1,6 @@
-import type { Book, ClassLevel, CoverMotif, Price, PriceKind, UserProfile } from "./types";
+import { classLevels } from "./coaching";
+import { seedBooks } from "./seed-books";
+import type { Book, BookNeed, ClassLevel, CoverMotif, Price, PriceKind, UserProfile } from "./types";
 
 const motifs: CoverMotif[] = ["orbit", "grid", "stairs", "wave", "nodes", "gate"];
 const priceKinds: PriceKind[] = ["soft", "hard", "chapter", "combined"];
@@ -13,6 +15,15 @@ function normalizePrices(v: unknown): Price[] {
       bdt: p.bdt as number,
       ...(typeof p.usd === "number" && p.usd > 0 ? { usd: p.usd } : {}),
     }));
+}
+
+/** `{ "9": "must", "10": "optional" }` — books saved before this existed use the built-in plan. */
+function normalizeForClasses(id: string, v: unknown): Book["forClasses"] {
+  if (!v || typeof v !== "object") return seedBooks.find((b) => b.slug === id)?.forClasses ?? {};
+  const raw = v as Record<string, unknown>;
+  const out: Book["forClasses"] = {};
+  for (const c of classLevels) if (raw[c] === "must" || raw[c] === "optional") out[c] = raw[c] as BookNeed;
+  return out;
 }
 
 /** Turns a raw Firestore document into a plain, fully-populated Book. */
@@ -45,12 +56,13 @@ export function normalizeBook(id: string, raw: Record<string, unknown>): Book {
     featured: Boolean(raw.featured),
     status: raw.status === "coming-soon" || raw.status === "draft" ? raw.status : "published",
     order: num(raw.order, 99),
+    forClasses: normalizeForClasses(id, raw.forClasses),
   };
 }
 
 export function normalizeProfile(uid: string, raw: Record<string, unknown>): UserProfile {
   const str = (v: unknown) => (typeof v === "string" ? v : "");
-  const classLevel = ["9", "10", "11", "12"].includes(raw.classLevel as string) ? (raw.classLevel as ClassLevel) : "";
+  const classLevel = classLevels.includes(raw.classLevel as ClassLevel) ? (raw.classLevel as ClassLevel) : "";
   return {
     uid,
     name: str(raw.name),
@@ -62,5 +74,6 @@ export function normalizeProfile(uid: string, raw: Record<string, unknown>): Use
     batchId: str(raw.batchId),
     photoURL: str(raw.photoURL),
     role: raw.role === "admin" ? "admin" : "student",
+    booksOwned: Array.isArray(raw.booksOwned) ? raw.booksOwned.filter((s): s is string => typeof s === "string") : [],
   };
 }

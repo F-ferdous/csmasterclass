@@ -1,6 +1,9 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
+import { BundlePopup } from "@/components/sections/bundle-popup";
+import { getBooks } from "@/lib/data";
+import { bundleBooks, bundleTiers } from "@/lib/pricing";
 
 /** Public website chrome: navbar + footer. */
 export default function SiteLayout({ children }: { children: ReactNode }) {
@@ -17,6 +20,14 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
         {children}
       </main>
       <Footer />
+      <Suspense fallback={null}>
+        <BundlePromo />
+      </Suspense>
     </>
   );
+}
+
+async function BundlePromo() {
+  const books = await getBooks();
+  return <BundlePopup books={bundleBooks(books)} tiers={bundleTiers(books)} />;
 }

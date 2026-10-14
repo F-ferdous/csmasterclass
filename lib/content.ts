@@ -144,9 +144,11 @@ export const coaching = {
   ],
 };
 
-/** The all-books bundle. Savings are calculated from the individual book prices. */
+/** The 0478 / 2210 bundle. Savings are calculated from the individual book prices. */
 export const bundle = {
   title: "The Complete Bundle",
+  /** The books it includes (the AS 9618 handbook is sold on its own). */
+  slugs: ["complete-student-handbook", "topical-notes-practice-questions", "topical-question-bank", "past-paper-qp-booklet", "mock-exam-papers"],
   options: [
     { kind: "soft" as const, bdt: 1999, usd: 20 },
     { kind: "hard" as const, bdt: 4500 },

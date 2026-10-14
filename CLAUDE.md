@@ -16,7 +16,7 @@ must **never appear on the Home page**.
 - React 19, TypeScript, **Tailwind CSS v4** (tokens in `app/globals.css` `@theme inline`).
 - **Motion** (`motion/react`) for animation, **Lenis** smooth scroll, `lucide-react` icons.
 - **Firebase** (client SDK v13): Auth (email/password + Google), Firestore, Analytics.
-  Storage is **not set up yet** (cover uploads in /admin need it).
+  **Storage** enabled 2026-10-14 (bucket `cs-masterclass.firebasestorage.app`, rules deployed from `storage.rules`).
 - Font: **Roboto only** (user's choice). Light/dark theme toggle (`data-theme` on `<html>`, saved in localStorage).
 
 ## Run / build / deploy
@@ -63,7 +63,7 @@ must **never appear on the Home page**.
 
 | Collection | Purpose | Access |
 |---|---|---|
-| `users/{uid}` | profile: name, email, phone, **phoneKey** (8801…, used to sign in), **authEmail**, **parentPhone**, classLevel, locationId, batchId (= confirmed batch), role | own read; students may update only name/parentPhone/photoURL; created by server on confirm (or admin) |
+| `users/{uid}` | profile: name, email, phone, **phoneKey** (8801…, used to sign in), **authEmail**, **parentPhone**, classLevel, locationId, batchId (= confirmed batch), role, **booksOwned** (book slugs ticked by admin) | own read; students may update only name/parentPhone/photoURL; created by server on confirm (or admin) |
 | `locations` | coaching centres | public read, admin write |
 | `batches` | classLevel, locationId, name, board, `sessions[{day,start,end}]` (per-day times), seats, **fee** (BDT/month), status, notes | public read, admin write |
 | `enrollments` | registrations (`uid: ""`, source signup, phoneKey, parentPhone — server-written) and batch-change requests (source profile): pending → confirmed/waitlisted/rejected/cancelled | students create own `profile` requests only; admin decides (registrations via server) |
@@ -81,20 +81,28 @@ must **never appear on the Home page**.
 | `announcements` | title, body, category, priority, audienceType/Values, pinned, status, expiresOn | published readable by signed-in users; admin write |
 | `payments` | tuition/book/admission/other, month, amount (BDT), method, reference, receivedOn | own + admin; admin write |
 | `resources` | study materials: title, description, kind (pdf/doc/image/video/link), url **or** file{path,name,size,contentType} (Storage `resources/{id}/…`), audienceType/Values, **audienceKeys** (`all`, `class:10`, `batch:<id>`, `location:<id>`; empty when hidden), visible | students read only docs whose audienceKeys match their profile (query must be `array-contains-any` of exactly their keys); admin write. Same check in `storage.rules` |
-| `books` | book catalogue (falls back to `lib/seed-books.ts` when empty) | public read, admin write |
+| `books` | book catalogue (falls back to `lib/seed-books.ts` when empty); **forClasses** `{"9": "must"\|"optional"}` (missing → built-in plan by slug) | public read, admin write |
 | `messages`, `subscribers` | contact form, newsletter | public create, admin read |
 
 ## Status — completed
 
-**Public site:** Home (motion hero with book covers, velocity marquee, stats, pinned horizontal book
+**Public site:** Home (motion hero with an animated CS "machine" — CPU chip + live pseudocode, logic gate, binary and bubble-sort cards in `components/sections/hero-machine.tsx`, velocity marquee, stats, pinned horizontal book
 showcase, bundle offer, pseudocode card, testimonials, newsletter), Teaching (coaching centres,
 live batch timetable from Firestore with "Join this batch", benefits, Edexcel note), Success, Books
 (+ detail page with 3D flip front/back covers, editions & prices, bundle), About (unlisted in nav/footer),
 Contact, 404. Favicon, dark/light toggle, Roboto font, pointer cursors.
 
-**Books & prices** (`lib/seed-books.ts`, covers rendered from `book-cover pages/` PDFs into `public/books/`):
+**Books & prices** (`lib/seed-books.ts`; covers rendered from `book-cover pages/` PDFs, stored in Firebase Storage
+`covers/<slug>-front|back.jpg` (public read) and referenced with `coverImage()` in `lib/books.ts` — no local copies):
 Handbook 499/1499 BDT, Topical Question Bank 399/999, Past Paper QP 399/999, Topical Notes 150/chapter
-or 1200 combined, Mock Exam 449/1399; Bundle 1999 soft / 4500 hard (best value, savings computed).
+or 1200 combined, Mock Exam 449/1399, **AS Computer Science Handbook (9618)** — price not set yet; Bundle (the five
+0478/2210 books in `bundle.slugs`, not the AS book) 1999 soft / 4500 hard (savings computed by `bundleTiers()`).
+- **Per-class book lists** (`suggestBooks()` in `lib/books.ts`, editable per book in Admin → Books → "Suggested on student dashboards"):
+  Class 9 must = Handbook + Topical QB, optional = Topical Notes; Class 10 must = Handbook + Topical QB + Past Paper + Mock,
+  optional = Topical Notes; Class 11 must = AS Handbook; Class 12 none (sees the whole library).
+- Admin → Students → student → **Books bought** ticks (`users.booksOwned`) hide those books from the student's suggestions.
+- **Bundle popup** (`components/sections/bundle-popup.tsx`, in `app/(site)/layout.tsx`): 400×300, opens 2.5 s into a visit on
+  public pages, once per browser session (sessionStorage `bundle-popup-seen`).
 
 **Auth (students get a login only when an admin confirms them — no Google sign-in):**
 - `/signup` = "Register for a batch": class → centre → batch + name, mobile (required), email (optional), parent phone,
@@ -119,7 +127,7 @@ log score), App & notifications (Profile; install card on Overview), Study mater
 (change batch → new enrollment request). 
 
 **Admin dashboard (`/admin`):** Overview, Batches (per-day times, fee, seats, student counts),
-Locations, Students (search/filter/edit/admin toggle/CSV), Enrollments (confirm/waitlist/decline,
+Locations, Students (search/filter/edit/admin toggle/books bought/CSV), Enrollments (confirm/waitlist/decline,
 capacity, bulk), Attendance (take register, history grid, rates, CSV), Tests & marks (create test for batches,
 enter marks with absent toggle, publish/unpublish), Homework (set for batches, submissions, mark + feedback, WhatsApp
 reminder), Revision (per-batch syllabus weak topics + past-paper practice table), Parent reports (month picker, per-student attendance/tests/fee summary,
@@ -140,8 +148,10 @@ iPhone: notifications only work after "Add to Home Screen" (iOS 16.4+).
 - **Orders** and **Settings** sections in admin (Settings could hold WhatsApp number, payment instructions, prices).
 - `site.whatsapp` in `lib/site.ts` is empty → "Order" buttons fall back to /contact. Ask the user for the number.
 - Payment instructions for students (bKash/Nagad numbers) not provided yet.
-- Firebase **Storage** not enabled (needs Blaze plan — user must do it in the console) → file uploads in Admin → Resources and
-  cover uploads in Admin → Books fail with a friendly message; links work. After enabling: `npx firebase-tools deploy --only storage --project cs-masterclass`.
+- **AS Computer Science Handbook prices** — ask the user (soft/hard BDT); the book shows without a price until then.
+- Idea: recording a book payment in Admin → Payments could auto-tick that book in the student's "Books bought" (not built).
+- Uploading files to Storage from the CLI: the firebase CLI login works (script used on 2026-10-14 got a token via
+  firebase-tools' `lib/auth.js` `getAccessToken` and POSTed to the GCS JSON API). Admin → Books cover upload works in the browser.
 - **Needs `service-account.json`** (Firebase console → Project settings → Service accounts → Generate new private key, saved in
   the project root) before registration / confirming / phone sign-in work locally. Restart the dev server after adding it.
 - Before deploying to App Hosting: its service account needs Firebase Auth admin + Firestore access (check roles).

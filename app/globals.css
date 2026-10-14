@@ -146,6 +146,17 @@
   50% { transform: translateY(-10px); }
 }
 
+/* Hero circuit: a dash (pathLength 1, dasharray "0.1 1.4") runs the trace, then waits off the end. */
+@keyframes packet {
+  from { stroke-dashoffset: 0.1; }
+  to { stroke-dashoffset: -1.4; }
+}
+
+.hero-packet {
+  stroke-dashoffset: 0.1;
+  animation: packet 2.4s linear infinite both;
+}
+
 /* ───────────────────────── Base ───────────────────────── */
 html {
   -webkit-text-size-adjust: 100%;

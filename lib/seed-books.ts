@@ -1,8 +1,9 @@
+import { coverImage } from "./books";
 import type { Book } from "./types";
 
 /**
  * The published books, taken from the cover pages in /book-cover pages.
- * Cover images live in /public/books. Once Firestore holds at least one
+ * Cover images live in Firebase Storage (covers/). Once Firestore holds at least one
  * book (publish from /admin, or use "Import sample books"), Firestore wins.
  */
 export const seedBooks: Book[] = [
@@ -22,8 +23,8 @@ export const seedBooks: Book[] = [
       { kind: "soft", bdt: 499, usd: 5 },
       { kind: "hard", bdt: 1499, usd: 15 },
     ],
-    coverUrl: "/books/complete-student-handbook-front.jpg",
-    backUrl: "/books/complete-student-handbook-back.jpg",
+    coverUrl: coverImage("complete-student-handbook-front.jpg"),
+    backUrl: coverImage("complete-student-handbook-back.jpg"),
     coverColor: "#12293F",
     coverAccent: "#3B8EA0",
     motif: "gate",
@@ -45,6 +46,7 @@ export const seedBooks: Book[] = [
     featured: true,
     status: "published",
     order: 1,
+    forClasses: { "9": "must", "10": "must" },
   },
   {
     slug: "topical-notes-practice-questions",
@@ -62,8 +64,8 @@ export const seedBooks: Book[] = [
       { kind: "chapter", bdt: 150, usd: 1.5 },
       { kind: "combined", bdt: 1200, usd: 12 },
     ],
-    coverUrl: "/books/topical-notes-practice-questions-front.jpg",
-    backUrl: "/books/topical-notes-practice-questions-back.jpg",
+    coverUrl: coverImage("topical-notes-practice-questions-front.jpg"),
+    backUrl: coverImage("topical-notes-practice-questions-back.jpg"),
     coverColor: "#AE4A38",
     coverAccent: "#EFCB61",
     motif: "wave",
@@ -82,6 +84,7 @@ export const seedBooks: Book[] = [
     featured: true,
     status: "published",
     order: 2,
+    forClasses: { "9": "optional", "10": "optional" },
   },
   {
     slug: "topical-question-bank",
@@ -99,8 +102,8 @@ export const seedBooks: Book[] = [
       { kind: "soft", bdt: 399, usd: 4 },
       { kind: "hard", bdt: 999, usd: 10 },
     ],
-    coverUrl: "/books/topical-question-bank-front.jpg",
-    backUrl: "/books/topical-question-bank-back.jpg",
+    coverUrl: coverImage("topical-question-bank-front.jpg"),
+    backUrl: coverImage("topical-question-bank-back.jpg"),
     coverColor: "#007F73",
     coverAccent: "#DCF26A",
     motif: "grid",
@@ -120,6 +123,7 @@ export const seedBooks: Book[] = [
     featured: true,
     status: "published",
     order: 3,
+    forClasses: { "9": "must", "10": "must" },
   },
   {
     slug: "past-paper-qp-booklet",
@@ -137,8 +141,8 @@ export const seedBooks: Book[] = [
       { kind: "soft", bdt: 399, usd: 4 },
       { kind: "hard", bdt: 999, usd: 10 },
     ],
-    coverUrl: "/books/past-paper-qp-booklet-front.jpg",
-    backUrl: "/books/past-paper-qp-booklet-back.jpg",
+    coverUrl: coverImage("past-paper-qp-booklet-front.jpg"),
+    backUrl: coverImage("past-paper-qp-booklet-back.jpg"),
     coverColor: "#1B2A44",
     coverAccent: "#C9A15F",
     motif: "stairs",
@@ -158,6 +162,7 @@ export const seedBooks: Book[] = [
     featured: false,
     status: "published",
     order: 4,
+    forClasses: { "10": "must" },
   },
   {
     slug: "mock-exam-papers",
@@ -175,8 +180,8 @@ export const seedBooks: Book[] = [
       { kind: "soft", bdt: 449 },
       { kind: "hard", bdt: 1399 },
     ],
-    coverUrl: "/books/mock-exam-papers-front.jpg",
-    backUrl: "/books/mock-exam-papers-back.jpg",
+    coverUrl: coverImage("mock-exam-papers-front.jpg"),
+    backUrl: coverImage("mock-exam-papers-back.jpg"),
     coverColor: "#6553A5",
     coverAccent: "#B8ACE0",
     motif: "nodes",
@@ -196,5 +201,43 @@ export const seedBooks: Book[] = [
     featured: false,
     status: "published",
     order: 5,
+    forClasses: { "10": "must" },
+  },
+  {
+    slug: "as-computer-science-handbook",
+    title: "AS Computer Science Handbook",
+    subtitle: "Student handbook and practice workbook · AS only",
+    syllabus: "Cambridge International AS Level · 9618",
+    description:
+      "AS Computer Science explained step by step — a detailed handbook for the 2027–2029 AS syllabus, with clear explanations, real-world examples and guided practice across both written papers.",
+    longDescription:
+      "Paper 1, Theory Fundamentals: data representation, networks, hardware, processors, system software, security, ethics and databases, with labelled diagrams and worked calculations that show how the ideas connect. Paper 2, Problem Solving and Programming: build algorithms with worked pseudocode, trace tables and practical scenarios — selection, loops, arrays, records, files, searching, sorting, procedures and functions — then test and improve your solutions. Covers AS syllabus sections 1–12, with chapter questions, suggested answers and mixed practice.",
+    category: "Handbook",
+    year: 2026,
+    pages: 0,
+    prices: [],
+    coverUrl: coverImage("as-computer-science-handbook-front.jpg"),
+    backUrl: coverImage("as-computer-science-handbook-back.jpg"),
+    coverColor: "#0A1C2A",
+    coverAccent: "#5FE3C0",
+    motif: "nodes",
+    facts: [
+      { value: "12", label: "AS chapters" },
+      { value: "54", label: "Diagrams and illustrations" },
+      { value: "196", label: "Chapter practice prompts" },
+    ],
+    highlights: [
+      "Paper 1 — Theory Fundamentals, with labelled diagrams and worked calculations",
+      "Paper 2 — Problem Solving and Programming, with worked pseudocode and trace tables",
+      "Real-world examples that connect the ideas",
+      "Chapter questions, suggested answers and mixed practice",
+      "Written for the 2027–2029 AS syllabus, sections 1–12",
+    ],
+    buyLinks: [],
+    praise: [],
+    featured: false,
+    status: "published",
+    order: 6,
+    forClasses: { "11": "must" },
   },
 ];

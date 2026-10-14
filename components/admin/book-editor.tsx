@@ -7,11 +7,14 @@ import { ImagePlus, Loader2, Trash2, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { db } from "@/lib/firebase";
 import { storage } from "@/lib/firebase-client";
-import type { Book, BookStatus, CoverMotif, Price, PriceKind } from "@/lib/types";
+import { bookNeedLabels } from "@/lib/books";
+import { classLevels } from "@/lib/coaching";
+import type { Book, BookNeed, BookStatus, CoverMotif, Price, PriceKind } from "@/lib/types";
 import { cn, slugify } from "@/lib/utils";
 import { refreshBooks } from "@/app/actions";
 import { BookCover } from "@/components/books/book-cover";
 import { ease } from "@/components/motion/reveal";
+import { Segmented } from "./ui";
 
 const motifs: CoverMotif[] = ["orbit", "grid", "stairs", "wave", "nodes", "gate"];
 const palettes = [
@@ -44,7 +47,10 @@ const blank = (order: number): Book => ({
   featured: false,
   status: "draft",
   order,
+  forClasses: {},
 });
+
+const needOptions = ["none", "must", "optional"] as const;
 
 const priceKinds: PriceKind[] = ["soft", "hard", "chapter", "combined"];
 
@@ -218,6 +224,30 @@ export function BookEditor({ book, nextOrder, onClose }: { book?: Book; nextOrde
                 placeholder={"soft | 499 | 5\nhard | 1499 | 15"}
               />
             </Field>
+            <div>
+              <p className="mb-1.5 flex items-baseline justify-between gap-3 text-sm font-medium">
+                Suggested on student dashboards
+                <span className="truncate font-mono text-[11px] font-normal text-ink-faint">Hidden once you tick it as bought</span>
+              </p>
+              <div className="divide-y divide-line rounded-2xl border border-line">
+                {classLevels.map((c) => (
+                  <div key={c} className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5">
+                    <span className="text-sm">Class {c}</span>
+                    <Segmented
+                      options={needOptions}
+                      value={b.forClasses[c] ?? "none"}
+                      render={(v) => (v === "none" ? "Not suggested" : bookNeedLabels[v])}
+                      onChange={(v) => {
+                        const next = { ...b.forClasses };
+                        if (v === "none") delete next[c];
+                        else next[c] = v as BookNeed;
+                        set("forClasses", next);
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
             <Field label="Key numbers" hint="One per line: 471 | Questions">
               <textarea className={cn(input, "font-mono text-sm")} rows={3} value={facts} onChange={(e) => setFacts(e.target.value)} placeholder={"50 | Papers\n3,750 | Marks"} />
             </Field>
