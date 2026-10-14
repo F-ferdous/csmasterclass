@@ -2,11 +2,12 @@
  * Teaching + success content. Replace the sample copy with your own story.
  */
 
+/** `books: true` → the value is the number of published books, counted live. */
 export const stats = [
   { value: 10, suffix: "+", label: "Years in the classroom" },
-  { value: 12000, suffix: "+", label: "Students taught" },
-  { value: 5, suffix: "", label: "Books published" },
-  { value: 96, suffix: "%", label: "Students scoring A*–B" },
+  { value: 1200, suffix: "+", label: "Students taught" },
+  { value: 6, suffix: "", label: "Books published", books: true },
+  { value: 90, suffix: "%", label: "A / A* in CAIE & Edexcel (Pearson) exams" },
 ];
 
 export const topics = [

@@ -19,7 +19,7 @@ const values = [
 
 const facts = [
   { k: "Teaching since", v: "2015" },
-  { k: "Students taught", v: "12,000+" },
+  { k: "Students taught", v: "1,200+" },
   { k: "Books written", v: "6" },
   { k: "Focus", v: "Computer Science" },
 ];

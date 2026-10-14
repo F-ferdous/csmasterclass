@@ -57,6 +57,7 @@ export function normalizeBook(id: string, raw: Record<string, unknown>): Book {
     status: raw.status === "coming-soon" || raw.status === "draft" ? raw.status : "published",
     order: num(raw.order, 99),
     forClasses: normalizeForClasses(id, raw.forClasses),
+    level: raw.level === "a-level" || raw.level === "o-level" ? raw.level : (seedBooks.find((b) => b.slug === id)?.level ?? "o-level"),
   };
 }
 

@@ -1,10 +1,13 @@
-import type { Book, BookNeed, ClassLevel } from "./types";
+import type { Book, BookLevel, BookNeed, ClassLevel } from "./types";
 
 const bucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "cs-masterclass.firebasestorage.app";
 
 /** Public URL of a cover image in Firebase Storage (`covers/` is world-readable in storage.rules). */
 export const coverImage = (file: string) =>
   `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(`covers/${file}`)}?alt=media`;
+
+export const bookLevels: BookLevel[] = ["o-level", "a-level"];
+export const bookLevelLabels: Record<BookLevel, string> = { "o-level": "O Level / IGCSE", "a-level": "AS & A Level" };
 
 export const bookNeedLabels: Record<BookNeed, string> = { must: "Must have", optional: "Optional" };
 

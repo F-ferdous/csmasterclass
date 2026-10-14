@@ -2,6 +2,7 @@ import { Hero } from "@/components/sections/hero";
 import { TopicMarquee } from "@/components/sections/marquee";
 import { StatsBand } from "@/components/sections/stats";
 import { Approach } from "@/components/sections/approach";
+import { BatchesLocations } from "@/components/sections/batches-locations";
 import { BookShowcase } from "@/components/sections/book-showcase";
 import { BundleOffer } from "@/components/sections/bundle-offer";
 import { SuccessPreview } from "@/components/sections/success-preview";
@@ -19,6 +20,7 @@ export default async function HomePage() {
       <StatsBand />
       <BookShowcase books={byFeature} />
       <BundleOffer books={byFeature} />
+      <BatchesLocations />
       <Approach />
       <SuccessPreview />
       <Newsletter />

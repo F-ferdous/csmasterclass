@@ -2,30 +2,82 @@
 
 import Link from "next/link";
 import { motion, useMotionValueEvent, useScroll, useSpring, useTransform } from "motion/react";
+import { useLenis } from "lenis/react";
 import { ArrowUpRight } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { BookCover } from "@/components/books/book-cover";
 import { Tilt } from "@/components/motion/tilt";
 import { SplitHeading } from "@/components/motion/split-heading";
-import { Reveal } from "@/components/motion/reveal";
-import type { Book } from "@/lib/types";
+import { Reveal, ease } from "@/components/motion/reveal";
+import { bookLevelLabels, bookLevels } from "@/lib/books";
+import type { Book, BookLevel } from "@/lib/types";
 import { formatBdt, priceLabels } from "@/lib/pricing";
+import { cn } from "@/lib/utils";
+
+type LevelPick = { level: BookLevel; levels: { level: BookLevel; count: number }[]; onChange: (l: BookLevel) => void };
 
 /**
- * Home-page book showcase. On tablets and up the section pins to the screen
- * and vertical scrolling slides the books sideways; on phones it becomes a
- * swipeable carousel.
+ * Home-page book showcase with an O Level / A Level toggle. On tablets and up the
+ * section pins to the screen and vertical scrolling slides the books sideways; on
+ * phones it becomes a swipeable carousel.
  */
 export function BookShowcase({ books }: { books: Book[] }) {
+  const ref = useRef<HTMLElement>(null);
+  const lenis = useLenis();
+  const levels = bookLevels.map((level) => ({ level, count: books.filter((b) => b.level === level).length })).filter((l) => l.count > 0);
+  const [level, setLevel] = useState<BookLevel>(levels[0]?.level ?? "o-level");
+  const shown = books.filter((b) => b.level === level);
+
+  function pick(next: BookLevel) {
+    setLevel(next);
+    // The pinned track's height depends on how many books it holds — go back to its start
+    // so a shorter list doesn't drop the reader past the section.
+    const el = ref.current;
+    if (el && el.getBoundingClientRect().top < 0) {
+      if (lenis) lenis.scrollTo(el, { immediate: true });
+      else el.scrollIntoView();
+    }
+  }
+
+  const picker: LevelPick = { level, levels, onChange: pick };
   return (
-    <section className="relative bg-band text-band-ink">
-      <PinnedTrack books={books} />
-      <SwipeTrack books={books} />
+    <section ref={ref} className="relative bg-band text-band-ink">
+      <PinnedTrack books={shown} picker={picker} />
+      <SwipeTrack books={shown} picker={picker} />
     </section>
   );
 }
 
-function Header() {
+function LevelToggle({ level, levels, onChange, id }: LevelPick & { id: string }) {
+  if (levels.length < 2) return null;
+  return (
+    <div role="tablist" aria-label="Book level" className="inline-flex w-fit rounded-full border border-band-ink/20 p-1">
+      {levels.map((l) => (
+        <button
+          key={l.level}
+          type="button"
+          role="tab"
+          aria-selected={level === l.level}
+          onClick={() => onChange(l.level)}
+          className={cn(
+            "relative rounded-full px-4 py-2 text-sm font-medium transition-colors sm:px-5",
+            level === l.level ? "text-band" : "opacity-75 hover:opacity-100",
+          )}
+        >
+          {level === l.level && (
+            <motion.span layoutId={`level-pill-${id}`} className="absolute inset-0 rounded-full bg-band-accent" transition={{ type: "spring", stiffness: 400, damping: 34 }} />
+          )}
+          <span className="relative whitespace-nowrap">
+            {bookLevelLabels[l.level]}
+            <span className="ml-1.5 text-xs opacity-60">{l.count}</span>
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Header({ picker, id }: { picker: LevelPick; id: string }) {
   return (
     <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
       <div>
@@ -36,6 +88,9 @@ function Header() {
           segments={["Lessons you can ", { em: "take home." }]}
           className="text-4xl leading-[1.05] sm:text-5xl lg:text-6xl [&_.text-ember]:text-band-accent"
         />
+        <div className="mt-6">
+          <LevelToggle {...picker} id={id} />
+        </div>
       </div>
       <Link
         href="/books"
@@ -48,7 +103,7 @@ function Header() {
   );
 }
 
-function PinnedTrack({ books }: { books: Book[] }) {
+function PinnedTrack({ books, picker }: { books: Book[]; picker: LevelPick }) {
   const sectionRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const [distance, setDistance] = useState(0);
@@ -81,7 +136,7 @@ function PinnedTrack({ books }: { books: Book[] }) {
     <div ref={sectionRef} className="relative hidden md:block" style={{ height: `${100 + books.length * 70}vh` }}>
       <div className="sticky top-0 flex h-[100svh] flex-col justify-center gap-10 overflow-hidden pt-16">
         <div className="container-x">
-          <Header />
+          <Header picker={picker} id="pin" />
         </div>
 
         <motion.div
@@ -107,7 +162,7 @@ function PinnedTrack({ books }: { books: Book[] }) {
 
         <div className="container-x flex items-center gap-5">
           <span className="font-mono text-xs tabular-nums opacity-70">
-            {String(active).padStart(2, "0")} / {String(books.length).padStart(2, "0")}
+            {String(Math.min(active, books.length)).padStart(2, "0")} / {String(books.length).padStart(2, "0")}
           </span>
           <div className="relative h-px flex-1 bg-band-ink/15">
             <motion.div style={{ scaleX: progress }} className="absolute inset-0 origin-left bg-band-accent" />
@@ -121,7 +176,11 @@ function PinnedTrack({ books }: { books: Book[] }) {
 
 function ShowcaseCard({ book, index }: { book: Book; index: number }) {
   return (
-    <article className="grid w-[min(78vw,880px)] shrink-0 grid-cols-[minmax(0,280px)_1fr] items-center gap-10 rounded-[2rem] border border-band-ink/10 bg-band-ink/[0.04] p-8 lg:gap-14 lg:p-12">
+    <motion.article
+      initial={{ opacity: 0, x: 60 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.7, delay: index * 0.08, ease }}
+      className="grid w-[min(78vw,880px)] shrink-0 grid-cols-[minmax(0,280px)_1fr] items-center gap-10 rounded-[2rem] border border-band-ink/10 bg-band-ink/[0.04] p-8 lg:gap-14 lg:p-12">
       <Tilt>
         <Link href={`/books/${book.slug}`} className="block" aria-label={book.title}>
           <BookCover book={book} sizes="280px" />
@@ -163,15 +222,15 @@ function ShowcaseCard({ book, index }: { book: Book; index: number }) {
           <ArrowUpRight className="size-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden />
         </Link>
       </div>
-    </article>
+    </motion.article>
   );
 }
 
-function SwipeTrack({ books }: { books: Book[] }) {
+function SwipeTrack({ books, picker }: { books: Book[]; picker: LevelPick }) {
   return (
     <div className="py-20 md:hidden">
       <div className="container-x">
-        <Header />
+        <Header picker={picker} id="swipe" />
       </div>
       <Reveal className="mt-10">
         <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 [scrollbar-width:none]" data-lenis-prevent>

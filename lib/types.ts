@@ -41,9 +41,13 @@ export type Book = {
   featured: boolean;
   status: BookStatus;
   order: number;
+  /** Which syllabus level the book is for — the Home page book section toggles between them. */
+  level: BookLevel;
   /** Which classes are told to get this book on their dashboard. Missing class = not suggested. */
   forClasses: Partial<Record<ClassLevel, BookNeed>>;
 };
+
+export type BookLevel = "o-level" | "a-level";
 
 /** How strongly a book is suggested to a class. */
 export type BookNeed = "must" | "optional";

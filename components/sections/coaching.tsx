@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { ArrowUpRight, BookOpenCheck, ClipboardCheck, Layers, MapPin, Pencil, Target, UserRoundCheck, Users } from "lucide-react";
+import { BookOpenCheck, ClipboardCheck, Layers, Pencil, Target, UserRoundCheck } from "lucide-react";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/reveal";
 import { SectionHeader } from "@/components/ui/section-header";
 import { ButtonLink } from "@/components/ui/button";
@@ -7,6 +6,7 @@ import { Magnetic } from "@/components/motion/magnetic";
 import { coaching } from "@/lib/content";
 import { getCoaching } from "@/lib/data";
 import { BatchSchedule } from "./batch-schedule";
+import { CentreCards } from "./centre-cards";
 
 const benefitIcons = [Layers, Pencil, BookOpenCheck, ClipboardCheck, Target, UserRoundCheck];
 
@@ -35,43 +35,9 @@ export async function Coaching() {
         </div>
 
         {/* Centres */}
-        <Stagger className="mt-14 grid gap-5 md:grid-cols-2">
-          {locations.map((c, i) => (
-            <StaggerItem key={c.id}>
-              <Link
-                href={hasSchedule ? "#schedule" : "/signup"}
-                className="group relative flex h-full flex-col justify-between overflow-hidden rounded-[2rem] bg-band p-8 text-band-ink transition-transform duration-500 hover:-translate-y-1.5 sm:p-10"
-              >
-                <div aria-hidden className="absolute -right-16 -top-16 size-56 rounded-full bg-band-accent/15 blur-2xl transition-transform duration-700 group-hover:scale-125" />
-                <div className="relative flex items-start justify-between gap-4">
-                  <span className="grid size-12 place-items-center rounded-2xl bg-band-accent text-band">
-                    <MapPin className="size-5" aria-hidden />
-                  </span>
-                  <span className="font-mono text-xs opacity-60">0{i + 1}</span>
-                </div>
-                <div className="relative mt-12">
-                  <p className="font-mono text-xs uppercase tracking-[0.18em] text-band-accent">{c.area}</p>
-                  <h3 className="mt-3 font-display text-4xl sm:text-5xl">{c.name}</h3>
-                  <div className="mt-6 flex flex-wrap items-center gap-2 text-sm">
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-band-ink/20 px-3 py-1.5">
-                      <Users className="size-3.5" aria-hidden />{" "}
-                      {(() => {
-                        const n = batches.filter((b) => b.locationId === c.id).length;
-                        return n > 0 ? `${n} batch${n === 1 ? "" : "es"}` : "Multiple batches";
-                      })()}
-                    </span>
-                    <span className="rounded-full border border-band-ink/20 px-3 py-1.5">Class 9 – 12</span>
-                    <span className="rounded-full border border-band-ink/20 px-3 py-1.5">Cambridge &amp; Edexcel</span>
-                  </div>
-                </div>
-                <span className="relative mt-8 inline-flex items-center gap-2 text-sm font-medium">
-                  {hasSchedule ? "See timings" : "Join now"}
-                  <ArrowUpRight className="size-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden />
-                </span>
-              </Link>
-            </StaggerItem>
-          ))}
-        </Stagger>
+        <div className="mt-14">
+          <CentreCards locations={locations} batches={batches} />
+        </div>
 
         {/* Batches — live schedule from the dashboard, or a class overview until batches are added */}
         {hasSchedule ? (

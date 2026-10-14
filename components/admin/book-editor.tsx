@@ -7,9 +7,9 @@ import { ImagePlus, Loader2, Trash2, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { db } from "@/lib/firebase";
 import { storage } from "@/lib/firebase-client";
-import { bookNeedLabels } from "@/lib/books";
+import { bookLevelLabels, bookLevels, bookNeedLabels } from "@/lib/books";
 import { classLevels } from "@/lib/coaching";
-import type { Book, BookNeed, BookStatus, CoverMotif, Price, PriceKind } from "@/lib/types";
+import type { Book, BookLevel, BookNeed, BookStatus, CoverMotif, Price, PriceKind } from "@/lib/types";
 import { cn, slugify } from "@/lib/utils";
 import { refreshBooks } from "@/app/actions";
 import { BookCover } from "@/components/books/book-cover";
@@ -48,6 +48,7 @@ const blank = (order: number): Book => ({
   status: "draft",
   order,
   forClasses: {},
+  level: "o-level",
 });
 
 const needOptions = ["none", "must", "optional"] as const;
@@ -185,6 +186,15 @@ export function BookEditor({ book, nextOrder, onClose }: { book?: Book; nextOrde
             <Field label="Full description">
               <textarea className={input} rows={5} value={b.longDescription} onChange={(e) => set("longDescription", e.target.value)} />
             </Field>
+
+            {/* Not a <label>: clicking its text would press the first button. */}
+            <div>
+              <p className="mb-1.5 flex items-baseline justify-between gap-3 text-sm font-medium">
+                Level
+                <span className="truncate font-mono text-[11px] font-normal text-ink-faint">Home page books toggle between these</span>
+              </p>
+              <Segmented options={bookLevels} value={b.level} render={(v) => bookLevelLabels[v]} onChange={(v) => set("level", v as BookLevel)} />
+            </div>
 
             <div className="grid gap-4 sm:grid-cols-3">
               <Field label="Category">

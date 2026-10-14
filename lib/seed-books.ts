@@ -47,6 +47,7 @@ export const seedBooks: Book[] = [
     status: "published",
     order: 1,
     forClasses: { "9": "must", "10": "must" },
+    level: "o-level",
   },
   {
     slug: "topical-notes-practice-questions",
@@ -85,6 +86,7 @@ export const seedBooks: Book[] = [
     status: "published",
     order: 2,
     forClasses: { "9": "optional", "10": "optional" },
+    level: "o-level",
   },
   {
     slug: "topical-question-bank",
@@ -124,6 +126,7 @@ export const seedBooks: Book[] = [
     status: "published",
     order: 3,
     forClasses: { "9": "must", "10": "must" },
+    level: "o-level",
   },
   {
     slug: "past-paper-qp-booklet",
@@ -163,6 +166,7 @@ export const seedBooks: Book[] = [
     status: "published",
     order: 4,
     forClasses: { "10": "must" },
+    level: "o-level",
   },
   {
     slug: "mock-exam-papers",
@@ -202,6 +206,7 @@ export const seedBooks: Book[] = [
     status: "published",
     order: 5,
     forClasses: { "10": "must" },
+    level: "o-level",
   },
   {
     slug: "as-computer-science-handbook",
@@ -239,5 +244,6 @@ export const seedBooks: Book[] = [
     status: "published",
     order: 6,
     forClasses: { "11": "must" },
+    level: "a-level",
   },
 ];
