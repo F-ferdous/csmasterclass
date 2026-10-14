@@ -39,7 +39,7 @@ export function TestsManager() {
       ),
       onSnapshot(collection(d, "batches"), (snap) => setBatches(sortBatches(snap.docs.map((x) => normalizeBatch(x.id, x.data()))))),
       onSnapshot(query(collection(d, "locations"), orderBy("order", "asc")), (snap) => setLocations(snap.docs.map((x) => normalizeLocation(x.id, x.data())))),
-      onSnapshot(collection(d, "users"), (snap) => setUsers(snap.docs.map((x) => normalizeProfile(x.id, x.data())))),
+      onSnapshot(collection(d, "students"), (snap) => setUsers(snap.docs.map((x) => normalizeProfile(x.id, x.data())))),
       onSnapshot(collection(d, "enrollments"), (snap) => setEnrollments(snap.docs.map((x) => normalizeEnrollment(x.id, x.data())))),
     ];
     return () => stops.forEach((s) => s());

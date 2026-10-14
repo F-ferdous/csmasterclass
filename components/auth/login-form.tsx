@@ -5,21 +5,23 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { authErrorMessage, safeNext, signIn } from "@/lib/auth";
 import { useAuth } from "./auth-provider";
+import { useStudentSession } from "./student-session";
 import { ErrorNote, Field, inputClass, NotConfiguredNote, PasswordInput, SubmitButton } from "./auth-ui";
 
 export function LoginForm() {
   const router = useRouter();
   const nextParam = useSearchParams().get("next");
   const { user, loading: authLoading, configured, isAdmin } = useAuth();
-  // An explicit ?next= wins; otherwise admins go to the admin dashboard and students to theirs.
-  const next = nextParam ? safeNext(nextParam) : isAdmin ? "/admin" : "/dashboard";
+  const { student, loading: studentLoading, refresh } = useStudentSession();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  // Already signed in (or just signed in) → continue.
+  // Already signed in (or just signed in) → continue. An explicit ?next= wins; otherwise admins go
+  // to the admin dashboard and students to theirs.
   useEffect(() => {
-    if (!authLoading && user) router.replace(next);
-  }, [authLoading, user, next, router]);
+    if (!studentLoading && student) router.replace(nextParam && !nextParam.startsWith("/admin") ? safeNext(nextParam) : "/dashboard");
+    else if (!authLoading && user) router.replace(nextParam ? safeNext(nextParam) : isAdmin ? "/admin" : "/");
+  }, [authLoading, user, isAdmin, studentLoading, student, nextParam, router]);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -27,7 +29,8 @@ export function LoginForm() {
     setBusy(true);
     setError("");
     try {
-      await signIn(String(data.get("identifier")), String(data.get("password")));
+      const kind = await signIn(String(data.get("identifier")), String(data.get("password")));
+      if (kind === "student") refresh(); // the effect above then continues to the dashboard
     } catch (err) {
       setError(authErrorMessage(err));
       setBusy(false);

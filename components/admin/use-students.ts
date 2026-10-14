@@ -20,7 +20,7 @@ export function useStudentsData() {
     const d = db();
     const stops = [
       onSnapshot(
-        query(collection(d, "users"), orderBy("createdAt", "desc")),
+        query(collection(d, "students"), orderBy("createdAt", "desc")),
         (snap) =>
           setStudents(
             snap.docs.map((doc) => {

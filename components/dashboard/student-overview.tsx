@@ -2,12 +2,10 @@
 
 import Link from "next/link";
 import { motion } from "motion/react";
-import { ArrowUpRight, BookMarked, BookOpen, CalendarDays, ClipboardCheck, GraduationCap, MailWarning, MapPin, Megaphone, Phone, Sparkles, TrendingUp } from "lucide-react";
-import { useState } from "react";
+import { ArrowUpRight, BookMarked, BookOpen, CalendarDays, ClipboardCheck, GraduationCap, MapPin, Megaphone, Phone, Sparkles, TrendingUp } from "lucide-react";
 import { BookCover } from "@/components/books/book-cover";
 import { ease } from "@/components/motion/reveal";
 import { attendanceRate } from "@/lib/attendance";
-import { resendVerification } from "@/lib/auth";
 import { classLabels } from "@/lib/coaching";
 import { formatBdt, lowestPrice } from "@/lib/pricing";
 import { dueText, homeworkStatus } from "@/lib/homework";
@@ -32,14 +30,12 @@ const rise = (i: number) => ({
 });
 
 export function StudentOverview() {
-  const { user, profile, batch, location, loading } = useStudent();
+  const { profile, batch, location, loading } = useStudent();
   const books = useBooks();
   const suggested = suggestBooks(books, profile?.classLevel ?? "", profile?.booksOwned ?? []);
   // Books still to get for their class (must-have first); everything not yet bought when the class has no list.
   const picks = suggested.planned ? [...suggested.must, ...suggested.optional] : suggested.other;
-  const firstName = (profile?.name || user?.displayName || "there").split(" ")[0];
-  // Students who registered with a phone only have no real email to verify.
-  const needsVerify = Boolean(profile?.email) && user?.providerData.some((p) => p.providerId === "password") && !user?.emailVerified;
+  const firstName = (profile?.name || "there").split(" ")[0];
 
   return (
     <div className="space-y-8">
@@ -48,7 +44,6 @@ export function StudentOverview() {
         <h1 className="mt-1 font-display text-3xl sm:text-4xl">Welcome back, {firstName}</h1>
       </motion.div>
 
-      {needsVerify && <VerifyBanner />}
 
       <GetTheAppCard />
 
@@ -205,28 +200,6 @@ function InfoCard({ icon: Icon, label, children }: { icon: typeof MapPin; label:
         <Icon className="size-3.5" aria-hidden /> {label}
       </p>
       <div className="mt-3">{children}</div>
-    </div>
-  );
-}
-
-function VerifyBanner() {
-  const [state, setState] = useState<"idle" | "sending" | "sent">("idle");
-  return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-gold/40 bg-gold/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-      <p className="flex items-center gap-2 text-sm">
-        <MailWarning className="size-4 shrink-0 text-gold" aria-hidden /> Please verify your email address — check your inbox for the link.
-      </p>
-      <button
-        type="button"
-        disabled={state !== "idle"}
-        onClick={() => {
-          setState("sending");
-          resendVerification().finally(() => setState("sent"));
-        }}
-        className="shrink-0 text-sm font-medium underline underline-offset-4 disabled:no-underline disabled:opacity-70"
-      >
-        {state === "sent" ? "Link sent" : state === "sending" ? "Sending…" : "Resend link"}
-      </button>
     </div>
   );
 }

@@ -1,5 +1,4 @@
 import { bundle } from "./content";
-import { site } from "./site";
 import type { Book, Price, PriceKind } from "./types";
 
 export const priceLabels: Record<PriceKind, string> = {
@@ -29,16 +28,10 @@ export function wholeBookPrice(book: Pick<Book, "prices">, format: "soft" | "har
   return (book.prices.find((p) => p.kind === format) ?? book.prices.find((p) => p.kind === "combined"))?.bdt;
 }
 
-/** WhatsApp order link with a pre-filled message, or the contact page while no number is set. */
-export function orderHref(message: string): { href: string; external: boolean } {
-  if (!site.whatsapp) return { href: "/contact", external: false };
-  return { href: `https://wa.me/${site.whatsapp}?text=${encodeURIComponent(message)}`, external: true };
-}
-
-export function orderMessage(bookTitle: string, price?: Price) {
-  return price
-    ? `Hello! I'd like to order "${bookTitle}" — ${priceLabels[price.kind]} (${formatBdt(price.bdt)}).`
-    : `Hello! I'd like to order "${bookTitle}".`;
+/** The website order form, with one book edition (or a bundle option) already chosen. */
+export function orderLink(choice: { book: string; kind: PriceKind } | { bundle: "soft" | "hard" }) {
+  const q = "bundle" in choice ? `bundle=${choice.bundle}` : `book=${encodeURIComponent(choice.book)}&kind=${choice.kind}`;
+  return `/order?${q}`;
 }
 
 /** The bundle's books, in the order given. */

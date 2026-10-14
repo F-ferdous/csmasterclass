@@ -1,30 +1,30 @@
 "use client";
 
-import { deleteField, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { motion } from "motion/react";
 import { Check, FileStack, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { StatTile } from "@/components/admin/charts";
 import { adminInput, Drawer, DrawerBody, DrawerFooter, drawerFormClass, EmptyState, ErrorText, Field, GhostButton, PageHeader, PrimaryButton, Spinner } from "@/components/admin/ui";
-import { useAuth } from "@/components/auth/auth-provider";
+import { savePastPaper } from "@/app/student-data";
+import { useStudentSession } from "@/components/auth/student-session";
 import { ease } from "@/components/motion/reveal";
-import { db } from "@/lib/firebase";
 import { attemptStats, paperName, papersFor, sessionLabels, type PaperAttempt, type PaperSpec, type PastPaper } from "@/lib/past-papers";
 import { cn } from "@/lib/utils";
 import { useMyPastPapers } from "./use-my-records";
+import { setStudentData } from "./use-student-data";
 
 const pct = (a: PaperAttempt) => (a.score === null ? null : Math.round((a.score / a.max) * 100));
 const tone = (p: number | null) => (p === null ? "border-forest/40 bg-forest/10 text-forest" : p >= 70 ? "border-forest bg-forest text-forest-ink" : p >= 50 ? "border-gold bg-gold text-ink" : "border-ember bg-ember text-white");
 
 export function StudentPastPapers() {
-  const { user, profile } = useAuth();
+  const { student: profile } = useStudentSession();
   const attempts = useMyPastPapers();
   const catalogue = papersFor(profile?.classLevel ?? "");
   const [paperNo, setPaperNo] = useState<number | null>(null);
   const [editing, setEditing] = useState<{ paper: PastPaper; spec: PaperSpec } | null>(null);
 
   if (attempts === null) return <Spinner />;
-  if (!catalogue || !user) {
+  if (!catalogue || !profile) {
     return (
       <div className="space-y-8">
         <PageHeader title="Past papers" description="Track the past papers you've practised and your scores." />
@@ -108,23 +108,34 @@ export function StudentPastPapers() {
       <p className="text-xs text-ink-faint">Paper numbers like 12 mean Paper 1, variant 2. Green 70%+, gold 50–69%, red below 50%.</p>
 
       <Drawer open={Boolean(editing)} title={editing ? paperName(editing.paper) : ""} onClose={() => setEditing(null)}>
-        {editing && <AttemptForm key={editing.paper.code} uid={user.uid} paper={editing.paper} spec={editing.spec} attempt={attempts[editing.paper.code]} onDone={() => setEditing(null)} />}
+        {editing && <AttemptForm key={editing.paper.code} paper={editing.paper} spec={editing.spec} attempt={attempts[editing.paper.code]} onDone={() => setEditing(null)} />}
       </Drawer>
     </div>
   );
 }
 
-function AttemptForm({ uid, paper, spec, attempt, onDone }: { uid: string; paper: PastPaper; spec: PaperSpec; attempt?: PaperAttempt; onDone: () => void }) {
+function AttemptForm({ paper, spec, attempt, onDone }: { paper: PastPaper; spec: PaperSpec; attempt?: PaperAttempt; onDone: () => void }) {
   const [score, setScore] = useState(attempt?.score === null || attempt?.score === undefined ? "" : String(attempt.score));
   const [max, setMax] = useState(String(attempt?.max ?? spec.max));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  async function write(value: Record<string, unknown> | ReturnType<typeof deleteField>) {
+  async function write(value: { score: number | null; max: number } | null) {
     setSaving(true);
     setError("");
     try {
-      await setDoc(doc(db(), "pastPapers", uid), { papers: { [paper.code]: value }, updatedAt: serverTimestamp() }, { merge: true });
+      const result = await savePastPaper(paper.code, value);
+      if (!result.ok) {
+        setError(result.error);
+        setSaving(false);
+        return;
+      }
+      setStudentData<Record<string, PaperAttempt>>("pastPapers", (cur) => {
+        const rest = { ...(cur ?? {}) };
+        if (value) rest[paper.code] = { ...value, at: new Date() };
+        else delete rest[paper.code];
+        return rest;
+      });
       onDone();
     } catch {
       setError("Couldn't save — check your connection and try again.");
@@ -137,7 +148,7 @@ function AttemptForm({ uid, paper, spec, attempt, onDone }: { uid: string; paper
     const s = score.trim() === "" ? null : Number(score);
     if (!Number.isFinite(m) || m <= 0) return setError("Enter the paper's total marks.");
     if (s !== null && (!Number.isFinite(s) || s < 0 || s > m)) return setError(`Your score should be between 0 and ${m}.`);
-    write({ score: s, max: m, at: serverTimestamp() });
+    write({ score: s, max: m });
   }
 
   return (
@@ -157,7 +168,7 @@ function AttemptForm({ uid, paper, spec, attempt, onDone }: { uid: string; paper
       </DrawerBody>
       <DrawerFooter>
         {attempt ? (
-          <GhostButton onClick={() => write(deleteField())} className="mr-auto text-ember hover:border-ember">
+          <GhostButton onClick={() => write(null)} className="mr-auto text-ember hover:border-ember">
             <Trash2 className="size-4" /> Not done
           </GhostButton>
         ) : (

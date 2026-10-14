@@ -5,8 +5,7 @@ import { motion } from "motion/react";
 import { ArrowUpRight, Check, Sparkles } from "lucide-react";
 import { BookCover } from "@/components/books/book-cover";
 import { ease } from "@/components/motion/reveal";
-import { bundle } from "@/lib/content";
-import { bundleBooks, bundleTiers, formatBdt, formatUsd, orderHref, priceLabels } from "@/lib/pricing";
+import { bundleBooks, bundleTiers, formatBdt, formatUsd, orderLink, priceLabels } from "@/lib/pricing";
 import type { Book } from "@/lib/types";
 
 /**
@@ -17,7 +16,7 @@ export function BundleOffer({ books }: { books: Book[] }) {
   const included = bundleBooks(books);
   const tiers = bundleTiers(books).map((t) => ({
     ...t,
-    order: orderHref(`Hello! I'd like to order ${bundle.title} — ${priceLabels[t.kind]} (${formatBdt(t.bdt)}).`),
+    href: orderLink({ bundle: t.kind }),
   }));
 
   return (
@@ -115,8 +114,7 @@ export function BundleOffer({ books }: { books: Book[] }) {
                 )}
 
                 <Link
-                  href={t.order.href}
-                  {...(t.order.external ? { target: "_blank", rel: "noreferrer" } : {})}
+                  href={t.href}
                   className="mt-6 inline-flex items-center justify-center gap-2 rounded-full bg-band-accent px-5 py-3 text-sm font-semibold text-band transition-transform active:scale-95"
                 >
                   Get the bundle

@@ -50,7 +50,7 @@ export function ParentReports() {
     const stops = [
       onSnapshot(collection(d, "batches"), (snap) => setBatches(sortBatches(snap.docs.map((x) => normalizeBatch(x.id, x.data())))), () => setBatches([])),
       onSnapshot(query(collection(d, "locations"), orderBy("order", "asc")), (snap) => setLocations(snap.docs.map((x) => normalizeLocation(x.id, x.data())))),
-      onSnapshot(collection(d, "users"), (snap) => setUsers(snap.docs.map((x) => normalizeProfile(x.id, x.data())))),
+      onSnapshot(collection(d, "students"), (snap) => setUsers(snap.docs.map((x) => normalizeProfile(x.id, x.data())))),
       onSnapshot(collection(d, "enrollments"), (snap) => setEnrollments(snap.docs.map((x) => normalizeEnrollment(x.id, x.data())))),
       onSnapshot(query(collection(d, "tests"), where("published", "==", true)), (snap) => setTests(snap.docs.map((x) => normalizeTest(x.id, x.data())))),
       onSnapshot(collection(d, "payments"), (snap) => setPayments(snap.docs.map((x) => normalizePayment(x.id, x.data())))),
@@ -276,7 +276,7 @@ function ReportPreview({ row, month, sentAt, next, onNext }: { row: Row; month: 
     setSavingPhone(true);
     setError("");
     try {
-      await updateDoc(doc(db(), "users", row.user.uid), { parentPhone: parentPhone.trim(), updatedAt: serverTimestamp() });
+      await updateDoc(doc(db(), "students", row.user.uid), { parentPhone: parentPhone.trim(), updatedAt: serverTimestamp() });
     } catch (err) {
       setError((err as Error).message);
     }

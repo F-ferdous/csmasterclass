@@ -62,7 +62,7 @@ export function BatchesManager() {
       () => setLocations([]),
     );
     // How many students are in each batch.
-    const stopU = onSnapshot(collection(db(), "users"), (snap) => {
+    const stopU = onSnapshot(collection(db(), "students"), (snap) => {
       const counts = new Map<string, number>();
       snap.docs.forEach((d) => {
         const id = d.data().batchId as string | undefined;

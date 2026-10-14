@@ -1,14 +1,14 @@
 "use client";
 
 import {
-  sendEmailVerification,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut as fbSignOut,
   type User,
 } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
-import { lookupLogin } from "@/app/student-actions";
+import { signInStudent, signOutStudent } from "@/app/student-actions";
+import { clearStudentCache } from "@/components/dashboard/use-student-data";
 import { db } from "./firebase";
 import { auth } from "./firebase-client";
 import type { ClassLevel } from "./types";
@@ -42,52 +42,36 @@ export async function ensureProfile(user: User) {
 /** An error the sign-in form can explain (see authErrorMessage); `detail` is shown with it. */
 const appError = (code: string, detail = "") => Object.assign(new Error(code), { code, detail });
 
-const lookupError = (found: Exclude<Awaited<ReturnType<typeof lookupLogin>>, { status: "ok" }>) =>
-  appError(lookupErrors[found.status], found.status === "rejected" ? found.note : "");
-
-const lookupErrors = {
+const studentErrors = {
   pending: "app/registration-pending",
   waitlisted: "app/registration-waitlisted",
   rejected: "app/registration-rejected",
   unavailable: "app/server-unavailable",
+  locked: "auth/too-many-requests",
   invalid: "auth/invalid-credential",
 } as const;
 
 /**
- * Sign in with an email address or a Bangladeshi mobile number. Emails go straight to Firebase;
- * otherwise the server finds the account (phone sign-in, a first sign-in after confirmation, or a
- * registration still waiting for a decision).
+ * Sign in with a mobile number or email. Students are checked on the server (which sets their
+ * session cookie); an email that isn't a student login is then tried as an admin (Firebase Auth).
  */
-export async function signIn(identifier: string, password: string) {
+export async function signIn(identifier: string, password: string): Promise<"student" | "admin"> {
   const id = identifier.trim();
-  if (id.includes("@")) {
-    try {
-      return (await signInWithEmailAndPassword(auth(), id, password)).user;
-    } catch (err) {
-      const code = (err as { code?: string }).code;
-      if (code !== "auth/invalid-credential" && code !== "auth/user-not-found" && code !== "auth/wrong-password") throw err;
-      const found = await lookupLogin(id, password).catch(() => null);
-      if (!found || found.status === "unavailable") throw err;
-      if (found.status !== "ok") throw lookupError(found);
-      return (await signInWithEmailAndPassword(auth(), found.email, password)).user;
-    }
-  }
-  const found = await lookupLogin(id, password);
-  if (found.status !== "ok") throw lookupError(found);
-  return (await signInWithEmailAndPassword(auth(), found.email, password)).user;
+  const result = await signInStudent(id, password);
+  if (result.status === "ok") return "student";
+  if (result.status !== "try-admin") throw appError(studentErrors[result.status], result.status === "rejected" ? result.note : "");
+  await signInWithEmailAndPassword(auth(), id, password);
+  return "admin";
 }
 
 export function resetPassword(email: string) {
   return sendPasswordResetEmail(auth(), email.trim(), { url: `${window.location.origin}/login` });
 }
 
-export function resendVerification() {
-  const user = auth().currentUser;
-  return user ? sendEmailVerification(user) : Promise.resolve();
-}
-
-export function signOut() {
-  return fbSignOut(auth());
+/** Signs out of both kinds of account (student session cookie and admin Firebase login). */
+export async function signOut() {
+  await Promise.all([signOutStudent(), fbSignOut(auth())]);
+  clearStudentCache();
 }
 
 /** Only allow same-site relative redirects after sign-in. */
@@ -111,13 +95,13 @@ export function authErrorMessage(err: unknown) {
     case "app/registration-rejected":
       return `Your registration wasn't accepted${detail ? ` — “${detail}”` : ""}. Please contact your teacher, or register again for another batch.`;
     case "app/server-unavailable":
-      return "Phone sign-in isn't available right now. Try your email address, or contact your teacher.";
+      return "Sign-in isn't available right now. Please try again later, or contact your teacher.";
     case "auth/invalid-email":
       return "Please enter a valid email address.";
     case "auth/weak-password":
       return "Choose a stronger password — at least 6 characters.";
     case "auth/too-many-requests":
-      return "Too many attempts. Please wait a moment and try again.";
+      return "Too many wrong passwords. Please wait 10 minutes and try again, or ask your teacher to reset it.";
     case "auth/operation-not-allowed":
       return "This sign-in method isn't enabled yet in Firebase Authentication.";
     case "auth/network-request-failed":

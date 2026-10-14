@@ -35,7 +35,7 @@ export function Overview() {
       ["pending", query(collection(d, "enrollments"), where("status", "==", "pending"))],
       ["batches", collection(d, "batches")],
       ["books", collection(d, "books")],
-      ["students", query(collection(d, "users"), where("role", "==", "student"))],
+      ["students", collection(d, "students")],
       ["messages", collection(d, "messages")],
       ["subscribers", collection(d, "subscribers")],
     ];

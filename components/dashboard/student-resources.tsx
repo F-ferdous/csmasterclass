@@ -7,7 +7,7 @@ import { adminInput, EmptyState, PageHeader, Spinner } from "@/components/admin/
 import { ease } from "@/components/motion/reveal";
 import { kindPlural, resourceKinds, type ResourceKind } from "@/lib/resources";
 import { cn } from "@/lib/utils";
-import { ResourceCard } from "./resource-card";
+import { ResourceCard, studentFileUrl } from "./resource-card";
 import { useMyResources } from "./use-resources";
 
 export function StudentResources() {
@@ -63,7 +63,7 @@ export function StudentResources() {
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((r, i) => (
             <motion.div key={r.id} layout initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: Math.min(i * 0.05, 0.4), ease }}>
-              <ResourceCard resource={r} />
+              <ResourceCard resource={r} fileHref={studentFileUrl(r.id)} />
             </motion.div>
           ))}
         </div>

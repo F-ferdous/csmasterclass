@@ -3,12 +3,11 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { AnimatePresence, motion } from "motion/react";
-import { AlertTriangle, BookCheck, ChevronRight, Download, GraduationCap, KeyRound, Mail, MessageCircle, Phone, Search, ShieldCheck, X } from "lucide-react";
+import { AlertTriangle, BookCheck, ChevronRight, Download, GraduationCap, KeyRound, Mail, MessageCircle, Phone, Search, X } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { EnrollmentPicker } from "@/components/auth/enrollment-picker";
 import { BookCover } from "@/components/books/book-cover";
 import { useBooks } from "@/components/dashboard/use-books";
-import { isAdminEmail } from "@/lib/admins";
 import { bookNeedLabels } from "@/lib/books";
 import type { Enrollment } from "@/lib/auth";
 import { placeStudent } from "@/lib/enrollments";
@@ -22,8 +21,6 @@ import { cn } from "@/lib/utils";
 import { adminInput, Drawer, DrawerBody, DrawerFooter, drawerFormClass, EmptyState, ErrorText, Field, GhostButton, PageHeader, PrimaryButton, Spinner } from "./ui";
 import { useStudentsData, type StudentRow } from "./use-students";
 
-type RoleFilter = "student" | "admin" | "all";
-
 const formatDate = (d: Date | null) => (d ? d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—");
 
 export function StudentsManager() {
@@ -33,7 +30,6 @@ export function StudentsManager() {
   const books = useBooks();
 
   const [search, setSearch] = useState("");
-  const [role, setRole] = useState<RoleFilter>("student");
   const [classFilter, setClassFilter] = useState<ClassLevel | "all">(
     classLevels.includes(params.get("class") as ClassLevel) ? (params.get("class") as ClassLevel) : "all",
   );
@@ -44,9 +40,7 @@ export function StudentsManager() {
   const locationName = useMemo(() => new Map(locations.map((l) => [l.id, l.name])), [locations]);
   const batchById = useMemo(() => new Map(batches.map((b) => [b.id, b])), [batches]);
 
-  const roleMatches = (s: StudentRow) => role === "all" || (role === "admin" ? s.role === "admin" || isAdminEmail(s.email) : s.role === "student" && !isAdminEmail(s.email));
-
-  const pool = (students ?? []).filter(roleMatches);
+  const pool = students ?? [];
   const q = search.trim().toLowerCase();
   const visible = pool.filter(
     (s) =>
@@ -73,7 +67,7 @@ export function StudentsManager() {
 
   function exportCsv() {
     const rows = [
-      ["Name", "Email", "Phone", "Parent's phone", "Class", "Centre", "Batch", "Role", "Joined", "Books bought"],
+      ["Name", "Email", "Phone", "Parent's phone", "Class", "Centre", "Batch", "Joined", "Books bought"],
       ...visible.map((s) => [
         s.name,
         s.email,
@@ -82,7 +76,6 @@ export function StudentsManager() {
         s.classLevel,
         locationName.get(s.locationId) ?? "",
         batchById.get(s.batchId)?.name ?? "",
-        s.role,
         s.joined ? s.joined.toISOString().slice(0, 10) : "",
         books.filter((b) => s.booksOwned.includes(b.slug)).map((b) => b.title).join("; "),
       ]),
@@ -141,7 +134,7 @@ export function StudentsManager() {
       </div>
 
       {/* Toolbar */}
-      <div className="mt-6 grid gap-3 lg:grid-cols-[1.4fr_repeat(4,minmax(0,1fr))]">
+      <div className="mt-6 grid gap-3 lg:grid-cols-[1.4fr_repeat(3,minmax(0,1fr))]">
         <label className="relative">
           <span className="sr-only">Search students</span>
           <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-ink-faint" aria-hidden />
@@ -167,11 +160,6 @@ export function StudentsManager() {
               Class {b.classLevel} · {b.name}
             </option>
           ))}
-        </select>
-        <select aria-label="Role" value={role} onChange={(e) => setRole(e.target.value as RoleFilter)} className={adminInput}>
-          <option value="student">Students</option>
-          <option value="admin">Admins</option>
-          <option value="all">Everyone</option>
         </select>
       </div>
 
@@ -224,11 +212,8 @@ export function StudentsManager() {
                     <span className="flex min-w-0 items-center gap-3">
                       <Avatar name={s.name || s.email} />
                       <span className="min-w-0">
-                        <span className="flex items-center gap-1.5 truncate font-medium">
-                          {s.name || "Unnamed"}
-                          {(s.role === "admin" || isAdminEmail(s.email)) && <ShieldCheck className="size-3.5 shrink-0 text-forest" aria-label="Admin" />}
-                        </span>
-                        <span className="block truncate text-xs text-ink-soft">{s.email}</span>
+                        <span className="block truncate font-medium">{s.name || "Unnamed"}</span>
+                        <span className="block truncate text-xs text-ink-soft">{s.phone || s.email}</span>
                         {/* Mobile summary */}
                         <span className="mt-1 block text-xs text-ink-soft md:hidden">
                           {s.classLevel ? `Class ${s.classLevel}` : "No class"} · {locationName.get(s.locationId) ?? "No centre"} · {batch?.name ?? "No batch"}
@@ -287,18 +272,14 @@ function StudentForm({ student, locations, batches, books, onDone }: { student: 
     locationId: student.locationId,
     batchId: student.batchId,
   });
-  const [makeAdmin, setMakeAdmin] = useState(student.role === "admin");
   const [owned, setOwned] = useState<string[]>(student.booksOwned);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const ownerAdmin = isAdminEmail(student.email);
   const batch = batches.find((b) => b.id === enrollment.batchId);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
-    const newRole = makeAdmin ? "admin" : "student";
-    if (newRole !== student.role && newRole === "admin" && !window.confirm(`Give ${student.name || student.email} full admin access to this dashboard?`)) return;
     setSaving(true);
     setError("");
     try {
@@ -310,7 +291,7 @@ function StudentForm({ student, locations, batches, books, onDone }: { student: 
         return setError("Enter a Bangladeshi mobile number, e.g. 01712345678.");
       }
       // phoneKey is what the student signs in with.
-      await updateDoc(doc(db(), "users", student.uid), { name, phone, phoneKey: phoneKey(phone), parentPhone, ...enrollment, role: newRole, booksOwned: owned, updatedAt: serverTimestamp() });
+      await updateDoc(doc(db(), "students", student.uid), { name, phone, phoneKey: phoneKey(phone), parentPhone, ...enrollment, booksOwned: owned, updatedAt: serverTimestamp() });
       // Moving a student yourself counts as a confirmed seat (and closes their old request).
       if (enrollment.batchId && enrollment.batchId !== student.batchId) {
         await placeStudent({ uid: student.uid, name, email: student.email, phone, ...enrollment }, "admin");
@@ -336,9 +317,11 @@ function StudentForm({ student, locations, batches, books, onDone }: { student: 
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <a href={`mailto:${student.email}`} className="inline-flex items-center gap-1.5 rounded-full border border-line px-3.5 py-2 text-sm hover:border-ink">
-            <Mail className="size-4" aria-hidden /> Email
-          </a>
+          {student.email && (
+            <a href={`mailto:${student.email}`} className="inline-flex items-center gap-1.5 rounded-full border border-line px-3.5 py-2 text-sm hover:border-ink">
+              <Mail className="size-4" aria-hidden /> Email
+            </a>
+          )}
           {student.phone && (
             <>
               <a href={`tel:${student.phone}`} className="inline-flex items-center gap-1.5 rounded-full border border-line px-3.5 py-2 text-sm hover:border-ink">
@@ -378,7 +361,7 @@ function StudentForm({ student, locations, batches, books, onDone }: { student: 
           <input name="parentPhone" type="tel" defaultValue={student.parentPhone} className={adminInput} placeholder="01XXXXXXXXX" />
         </Field>
         <Field label="Email" hint="Can't be changed here">
-          <input value={student.email} readOnly className={cn(adminInput, "bg-paper-2 text-ink-soft")} />
+          <input value={student.email} readOnly placeholder="No email — signs in with mobile number" className={cn(adminInput, "bg-paper-2 text-ink-soft")} />
         </Field>
 
         <div className="border-t border-line pt-5">
@@ -393,26 +376,6 @@ function StudentForm({ student, locations, batches, books, onDone }: { student: 
         <BooksBought books={books} classLevel={enrollment.classLevel} owned={owned} onChange={setOwned} />
 
         <PasswordReset uid={student.uid} name={student.name} />
-
-        <div className="border-t border-line pt-5">
-          <label className="flex items-start justify-between gap-4 rounded-2xl border border-line px-4 py-3.5">
-            <span>
-              <span className="flex items-center gap-1.5 text-sm font-medium">
-                <ShieldCheck className="size-4 text-forest" aria-hidden /> Admin access
-              </span>
-              <span className="mt-0.5 block text-xs text-ink-soft">
-                {ownerAdmin ? "This is the owner account — it's always an admin." : "Admins can manage batches, books, students and messages."}
-              </span>
-            </span>
-            <input
-              type="checkbox"
-              checked={makeAdmin || ownerAdmin}
-              disabled={ownerAdmin}
-              onChange={(e) => setMakeAdmin(e.target.checked)}
-              className="mt-1 size-5 accent-[var(--forest)]"
-            />
-          </label>
-        </div>
 
         <ErrorText message={error} />
       </DrawerBody>
@@ -502,7 +465,7 @@ function PasswordReset({ uid, name }: { uid: string; name: string }) {
         <KeyRound className="size-4" aria-hidden /> New password for {name || "this student"}
       </p>
       {state === "done" ? (
-        <p className="mt-2 text-sm text-forest">Password changed. Tell the student their new password — they can sign in with it now.</p>
+        <p className="mt-2 text-sm text-forest">Password changed — they’re signed out everywhere. Tell the student their new password; they can sign in with it now.</p>
       ) : (
         <>
           <div className="mt-3 flex gap-2">

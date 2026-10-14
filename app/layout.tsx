@@ -4,6 +4,7 @@ import { MotionProvider } from "@/components/motion/motion-provider";
 import { themeScript } from "@/lib/theme";
 import { Analytics } from "@/components/layout/analytics";
 import { AuthProvider } from "@/components/auth/auth-provider";
+import { StudentSessionProvider } from "@/components/auth/student-session";
 import { site } from "@/lib/site";
 import "./globals.css";
 
@@ -38,7 +39,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="flex min-h-dvh flex-col">
         <MotionProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <StudentSessionProvider>{children}</StudentSessionProvider>
+          </AuthProvider>
           <Analytics />
         </MotionProvider>
       </body>

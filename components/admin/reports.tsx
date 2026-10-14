@@ -57,7 +57,7 @@ export function Reports() {
     const d = db();
     const stops = [
       onSnapshot(collection(d, "payments"), (s) => setPayments(s.docs.map((x) => normalizePayment(x.id, x.data()))), () => setPayments([])),
-      onSnapshot(collection(d, "users"), (s) =>
+      onSnapshot(collection(d, "students"), (s) =>
         setStudents(
           s.docs.map((x) => {
             const raw = x.data();

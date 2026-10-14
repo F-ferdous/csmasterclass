@@ -7,6 +7,7 @@ import { Loader2, LogOut, Menu, X, type LucideIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { signOut } from "@/lib/auth";
+import { useStudentSession } from "@/components/auth/student-session";
 import { site } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +39,7 @@ type Props = {
 export function DashboardFrame({ children, nav, subtitle, name, email, actions, badges = {} }: Props) {
   const pathname = usePathname();
   const router = useRouter();
+  const { refresh: refreshSession } = useStudentSession();
   const [navOn, setNavOn] = useState<string | null>(null);
   const mobileOpen = navOn === pathname; // closes automatically after navigating
   const items = nav.flatMap((g) => g.items);
@@ -111,7 +113,10 @@ export function DashboardFrame({ children, nav, subtitle, name, email, actions, 
           </div>
           <button
             type="button"
-            onClick={() => signOut().then(() => router.replace("/"))}
+            onClick={() => signOut().then(() => {
+              refreshSession();
+              router.replace("/");
+            })}
             aria-label="Sign out"
             title="Sign out"
             className="grid size-9 place-items-center rounded-full text-ink-soft hover:bg-paper-2 hover:text-ember"

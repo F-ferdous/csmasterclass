@@ -6,15 +6,22 @@ import { AnimatePresence, motion } from "motion/react";
 import { GraduationCap, LayoutDashboard, LogOut, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
+import { useStudentSession } from "@/components/auth/student-session";
 import { signOut } from "@/lib/auth";
 
 /** Sign in / Join now when signed out; an account menu when signed in. */
 export function AuthActions() {
   const { user, profile, isAdmin, loading, configured } = useAuth();
+  const session = useStudentSession();
 
-  if (!configured || loading) {
+  if (!configured || loading || session.loading) {
     // Keep layout stable while auth state loads.
     return <span className="hidden h-11 w-[188px] sm:block" aria-hidden />;
+  }
+
+  if (session.student) {
+    const s = session.student;
+    return <AccountMenu name={s.name || "Student"} email={s.email || s.phone} isAdmin={false} />;
   }
 
   if (!user) {
@@ -40,8 +47,10 @@ export function AuthActions() {
   return <AccountMenu name={name} email={user.email ?? ""} isAdmin={isAdmin} />;
 }
 
+/** Students get their dashboard links; admins (Firebase sign-in) get the admin dashboard. */
 function AccountMenu({ name, email, isAdmin }: { name: string; email: string; isAdmin: boolean }) {
   const router = useRouter();
+  const { refresh } = useStudentSession();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const initials = name.split(/[\s@]/).filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
@@ -86,15 +95,23 @@ function AccountMenu({ name, email, isAdmin }: { name: string; email: string; is
               <p className="truncate text-xs text-ink-soft">{email}</p>
             </div>
             <div className="my-1 h-px bg-line" />
-            {isAdmin && <MenuLink href="/admin" icon={LayoutDashboard} label="Admin dashboard" onClick={() => setOpen(false)} />}
-            <MenuLink href="/dashboard" icon={GraduationCap} label={isAdmin ? "Student view" : "My dashboard"} onClick={() => setOpen(false)} />
-            <MenuLink href="/dashboard/profile" icon={UserRound} label="Profile" onClick={() => setOpen(false)} />
+            {isAdmin ? (
+              <MenuLink href="/admin" icon={LayoutDashboard} label="Admin dashboard" onClick={() => setOpen(false)} />
+            ) : (
+              <>
+                <MenuLink href="/dashboard" icon={GraduationCap} label="My dashboard" onClick={() => setOpen(false)} />
+                <MenuLink href="/dashboard/profile" icon={UserRound} label="Profile" onClick={() => setOpen(false)} />
+              </>
+            )}
             <button
               type="button"
               role="menuitem"
               onClick={() => {
                 setOpen(false);
-                signOut().then(() => router.push("/"));
+                signOut().then(() => {
+                  refresh();
+                  router.push("/");
+                });
               }}
               className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-ember hover:bg-paper-2"
             >
@@ -118,9 +135,10 @@ function MenuLink({ href, icon: Icon, label, onClick }: { href: string; icon: ty
 /** Account links for the mobile menu. */
 export function MobileAuthLinks() {
   const { user, isAdmin, configured } = useAuth();
+  const { student, refresh } = useStudentSession();
   const router = useRouter();
   if (!configured) return null;
-  if (!user) {
+  if (!user && !student) {
     return (
       <div className="grid grid-cols-2 gap-3 pt-8">
         <Link href="/login" className="rounded-full border border-line px-5 py-3.5 text-center text-sm font-medium">
@@ -135,14 +153,23 @@ export function MobileAuthLinks() {
   return (
     <div className="grid gap-3 pt-8">
       <div className="grid grid-cols-2 gap-3">
-        <Link href="/dashboard" className="rounded-full border border-line px-5 py-3.5 text-center text-sm font-medium">
-          My dashboard
+        <Link href={student ? "/dashboard" : "/admin"} className="rounded-full border border-line px-5 py-3.5 text-center text-sm font-medium">
+          {student ? "My dashboard" : "Admin"}
         </Link>
-        <button type="button" onClick={() => signOut().then(() => router.push("/"))} className="rounded-full border border-line px-5 py-3.5 text-sm text-ember">
+        <button
+          type="button"
+          onClick={() =>
+            signOut().then(() => {
+              refresh();
+              router.push("/");
+            })
+          }
+          className="rounded-full border border-line px-5 py-3.5 text-sm text-ember"
+        >
           Sign out
         </button>
       </div>
-      {isAdmin && (
+      {isAdmin && student && (
         <Link href="/admin" className="rounded-full bg-forest px-5 py-3.5 text-center text-sm font-semibold text-forest-ink">
           Admin dashboard
         </Link>

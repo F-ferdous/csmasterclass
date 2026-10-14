@@ -1,30 +1,18 @@
 "use client";
 
-import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { motion } from "motion/react";
 import { Receipt, Wallet } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useAuth } from "@/components/auth/auth-provider";
+import { getMyPayments } from "@/app/student-data";
 import { EmptyState, PageHeader, Spinner } from "@/components/admin/ui";
 import { ease } from "@/components/motion/reveal";
-import { db } from "@/lib/firebase";
-import { bdt, dueLabels, dueStyles, methodLabels, monthLabel, normalizePayment, thisMonth, tuitionStatus, typeLabels, type Payment } from "@/lib/payments";
+import { bdt, dueLabels, dueStyles, methodLabels, monthLabel, thisMonth, tuitionStatus, typeLabels } from "@/lib/payments";
 import { cn } from "@/lib/utils";
 import { useStudent } from "./use-student";
+import { useStudentData } from "./use-student-data";
 
 export function StudentPayments() {
-  const { user } = useAuth();
   const { batch } = useStudent();
-  const [payments, setPayments] = useState<Payment[] | null>(null);
-
-  useEffect(() => {
-    if (!user) return;
-    return onSnapshot(
-      query(collection(db(), "payments"), where("uid", "==", user.uid)),
-      (snap) => setPayments(snap.docs.map((d) => normalizePayment(d.id, d.data())).sort((a, b) => b.receivedOn.localeCompare(a.receivedOn))),
-      () => setPayments([]),
-    );
-  }, [user]);
+  const payments = useStudentData("payments", getMyPayments);
 
   if (payments === null) return <Spinner />;
 

@@ -10,6 +10,7 @@ import type { Enrollment } from "@/lib/auth";
 import { classLevels } from "@/lib/coaching";
 import type { ClassLevel } from "@/lib/types";
 import { useAuth } from "./auth-provider";
+import { useStudentSession } from "./student-session";
 import { ErrorNote, Field, inputClass, NotConfiguredNote, PasswordInput, SubmitButton } from "./auth-ui";
 import { EnrollmentPicker } from "./enrollment-picker";
 import { useCoaching } from "./use-locations";
@@ -22,6 +23,7 @@ export function SignupForm() {
   const router = useRouter();
   const params = useSearchParams();
   const { user, loading: authLoading, configured, isAdmin } = useAuth();
+  const { student } = useStudentSession();
   const coaching = useCoaching();
 
   // Pre-filled when arriving from a batch's "Join this batch" button.
@@ -38,8 +40,9 @@ export function SignupForm() {
 
   // Already signed in → this page isn't for you.
   useEffect(() => {
-    if (!authLoading && user) router.replace(isAdmin ? "/admin" : "/dashboard");
-  }, [authLoading, user, isAdmin, router]);
+    if (student) router.replace("/dashboard");
+    else if (!authLoading && user) router.replace(isAdmin ? "/admin" : "/");
+  }, [authLoading, user, isAdmin, student, router]);
 
   // Make sure the message is seen.
   useEffect(() => {

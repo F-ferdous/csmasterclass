@@ -16,7 +16,7 @@ type Target = { uids?: string[]; batchIds?: string[]; audience?: { audienceType:
  */
 export async function notifyStudents(target: Target, payload: PushPayload) {
   const d = db();
-  const [usersSnap, subsSnap] = await Promise.all([getDocs(collection(d, "users")), getDocs(collection(d, "pushSubscriptions"))]);
+  const [usersSnap, subsSnap] = await Promise.all([getDocs(collection(d, "students")), getDocs(collection(d, "pushSubscriptions"))]);
   const students = usersSnap.docs.map((x) => normalizeProfile(x.id, x.data())).filter((u) => u.role === "student");
   const wanted = new Set(
     students

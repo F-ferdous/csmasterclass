@@ -22,21 +22,27 @@ service cloud.firestore {
     }
 
     // ── Accounts ───────────────────────────────────────────────
+    // Admin accounts only (Firebase Auth). Students are in students/{id} and have no Firebase login:
+    // the website's server reads and writes their data for them (app/student-data.ts), so every
+    // student collection below is admin-only from the browser. "signedIn()" therefore means an admin.
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create, update, delete: if isAdmin();
+    }
 
-      // Student profiles are created on the server when an admin confirms a registration
-      // (app/student-actions.ts); only admins create them from the browser.
-      allow create: if isAdmin();
+    // One record per confirmed student (created on the server when an admin confirms a registration).
+    // The password hash is in students/{id}/private/auth, which no browser may ever read.
+    match /students/{id} {
+      allow read, write: if isAdmin();
 
-      // Students may change only their name and parent's phone. Class, centre, batch (what decides
-      // which materials they see), sign-in phone and role are set by admins.
-      allow update: if isAdmin() || (
-        signedIn() && request.auth.uid == uid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'parentPhone', 'photoURL', 'updatedAt'])
-      );
+      match /private/{doc} {
+        allow read, write: if false;
+      }
+    }
 
-      allow delete: if isAdmin();
+    // Failed sign-in counters (brute-force protection). Server only.
+    match /loginAttempts/{id} {
+      allow read, write: if false;
     }
 
     // ── Coaching ───────────────────────────────────────────────
@@ -50,30 +56,9 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Seat requests. New students' registrations are written by the server (uid ""), so the
-    // browser can only add batch-change requests for an existing account. Only admins decide.
+    // Registrations and batch-change requests — written by the server, decided by admins.
     match /enrollments/{id} {
-      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
-
-      allow create: if isAdmin() || (
-        signedIn()
-        && request.resource.data.uid == request.auth.uid
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'phone', 'classLevel', 'locationId', 'batchId', 'status', 'source', 'note', 'createdAt', 'updatedAt'])
-        && request.resource.data.status == 'pending'
-        && request.resource.data.source == 'profile'
-        && request.resource.data.note == ''
-        && exists(/databases/$(database)/documents/batches/$(request.resource.data.batchId))
-      );
-
-      allow update: if isAdmin() || (
-        signedIn()
-        && resource.data.uid == request.auth.uid
-        && request.resource.data.status == 'cancelled'
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
-      );
-
-      allow delete: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
     // Scrypt password hashes for registrations awaiting a decision. Server only.
@@ -86,63 +71,37 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
-    // Homework for batches (audienceKeys "batch:<id>", empty while hidden — same check as resources).
-    function canSeeHomework(id) {
-      return get(/databases/$(database)/documents/homework/$(id)).data.audienceKeys.hasAny(myAudienceKeys());
-    }
-
+    // Homework and each student's submission (doc id = student id).
     match /homework/{id} {
-      allow read: if isAdmin() || (signedIn() && resource.data.audienceKeys.hasAny(myAudienceKeys()));
-      allow write: if isAdmin();
+      allow read, write: if isAdmin();
 
-      // One submission per student (doc id = their uid). Students edit their answer until it's marked;
-      // only admins set mark / feedback / markedAt.
       match /submissions/{uid} {
-        allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
-        allow create: if isAdmin() || (
-          signedIn() && request.auth.uid == uid && canSeeHomework(id)
-          && request.resource.data.keys().hasOnly(['uid', 'name', 'link', 'note', 'file', 'submittedAt', 'updatedAt'])
-          && request.resource.data.uid == uid
-        );
-        allow update: if isAdmin() || (
-          signedIn() && request.auth.uid == uid && canSeeHomework(id)
-          && resource.data.get('markedAt', null) == null
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'link', 'note', 'file', 'submittedAt', 'updatedAt'])
-        );
-        allow delete: if isAdmin();
+        allow read, write: if isAdmin();
       }
     }
 
-    // Revision trackers, written by the student themselves.
+    // Per-student documents: revision trackers, push subscriptions, attendance and result copies.
     match /syllabusProgress/{uid} {
-      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
-      allow write: if isAdmin() || (signedIn() && request.auth.uid == uid && request.resource.data.keys().hasOnly(['topics', 'updatedAt']));
+      allow read, write: if isAdmin();
     }
 
     match /pastPapers/{uid} {
-      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
-      allow write: if isAdmin() || (signedIn() && request.auth.uid == uid && request.resource.data.keys().hasOnly(['papers', 'updatedAt']));
+      allow read, write: if isAdmin();
     }
 
-    // Web push subscriptions for each student's devices (endpoint + keys), used to send notifications.
     match /pushSubscriptions/{uid} {
-      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
-      allow write: if isAdmin() || (signedIn() && request.auth.uid == uid && request.resource.data.keys().hasOnly(['subs', 'updatedAt']));
+      allow read, write: if isAdmin();
     }
 
-    // Each student's own attendance and published test results (copied from the admin-only
-    // registers and tests/{id}, which hold the whole batch).
     match /studentAttendance/{uid} {
-      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
-      allow write: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
     match /studentResults/{uid} {
-      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
-      allow write: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
-    // Tests with every student's marks, and the parent-report log. Admins only.
+    // Tests with every student's marks, and the parent-report log.
     match /tests/{id} {
       allow read, write: if isAdmin();
     }
@@ -151,35 +110,48 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
-    // Notices for students. Signed-in users see published ones (audience is filtered in the app);
-    // drafts are admin-only.
     match /announcements/{id} {
-      allow read: if isAdmin() || (signedIn() && resource.data.status == 'published');
-      allow write: if isAdmin();
-    }
-
-    // Study materials. A student can read only items whose audienceKeys include one of theirs
-    // ("all", "class:10", "batch:<id>", "location:<id>"). Hidden items have no keys, so never match.
-    function myAudienceKeys() {
-      let p = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return ['all', 'class:' + p.get('classLevel', ''), 'batch:' + p.get('batchId', ''), 'location:' + p.get('locationId', '')];
+      allow read, write: if isAdmin();
     }
 
     match /resources/{id} {
-      allow read: if isAdmin() || (signedIn() && resource.data.audienceKeys.hasAny(myAudienceKeys()));
-      allow write: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
-    // Money received, recorded by admins. Students can see only their own payments.
     match /payments/{id} {
-      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
-      allow write: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
     // ── Publishing ─────────────────────────────────────────────
     match /books/{slug} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    // ── Orders ─────────────────────────────────────────────────
+    // Website order form: anyone can place a well-formed new, unpaid order (prices are
+    // re-checked by an admin before confirming). Signed-in students' orders come from the server.
+    function validWebOrder() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['ref', 'uid', 'name', 'phone', 'email', 'address', 'note', 'items', 'subtotal',
+          'deliveryFee', 'discount', 'status', 'source', 'paymentStatus', 'createdAt'])
+        && d.ref is string && d.ref.size() > 0 && d.ref.size() <= 24
+        && d.uid == ''
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 100
+        && d.phone is string && d.phone.size() >= 10 && d.phone.size() <= 20
+        && d.email is string && d.email.size() <= 200
+        && d.address is string && d.address.size() <= 500
+        && d.note is string && d.note.size() <= 1000
+        && d.items is list && d.items.size() > 0 && d.items.size() <= 20
+        && d.subtotal is number && d.subtotal >= 0 && d.subtotal <= 1000000
+        && d.deliveryFee == 0 && d.discount == 0
+        && d.status == 'new' && d.source == 'website' && d.paymentStatus == 'unpaid'
+        && d.createdAt == request.time;
+    }
+
+    match /orders/{id} {
+      allow create: if isAdmin() || validWebOrder();
+      allow read, update, delete: if isAdmin();
     }
 
     // ── Inbox ──────────────────────────────────────────────────

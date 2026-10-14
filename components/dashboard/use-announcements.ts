@@ -1,10 +1,10 @@
 "use client";
 
-import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { useEffect, useState } from "react";
-import { useAuth } from "@/components/auth/auth-provider";
-import { isExpired, normalizeAnnouncement, reaches, sortAnnouncements, type Announcement } from "@/lib/announcements";
-import { db } from "@/lib/firebase";
+import { getMyAnnouncements } from "@/app/student-data";
+import { useStudentSession } from "@/components/auth/student-session";
+import type { Announcement } from "@/lib/announcements";
+import { useStudentData } from "./use-student-data";
 
 const seenKey = (uid: string) => `announcements-seen:${uid}`;
 
@@ -16,22 +16,9 @@ function readSeen(uid: string) {
   }
 }
 
-/** Published, unexpired announcements meant for the signed-in student (live). */
-export function useMyAnnouncements() {
-  const { user, profile } = useAuth();
-  const [all, setAll] = useState<Announcement[] | null>(null);
-
-  useEffect(() => {
-    if (!user) return;
-    return onSnapshot(
-      query(collection(db(), "announcements"), where("status", "==", "published")),
-      (snap) => setAll(snap.docs.map((d) => normalizeAnnouncement(d.id, d.data()))),
-      () => setAll([]),
-    );
-  }, [user]);
-
-  const mine = all && profile ? sortAnnouncements(all.filter((a) => !isExpired(a) && reaches(a, profile))) : all ? [] : null;
-  return mine;
+/** Published, unexpired announcements meant for the signed-in student. */
+export function useMyAnnouncements(): Announcement[] | null {
+  return useStudentData("announcements", getMyAnnouncements);
 }
 
 /**
@@ -39,15 +26,16 @@ export function useMyAnnouncements() {
  * Returns the cut-off captured on mount, so badges stay visible during this visit.
  */
 export function useSeenCutoff(markSeenOnMount: boolean) {
-  const { user } = useAuth();
-  const [cutoff] = useState(() => (user ? readSeen(user.uid) : 0));
+  const { student } = useStudentSession();
+  const uid = student?.uid ?? "";
+  const [cutoff] = useState(() => (uid ? readSeen(uid) : 0));
 
   useEffect(() => {
-    if (!markSeenOnMount || !user) return;
+    if (!markSeenOnMount || !uid) return;
     try {
-      localStorage.setItem(seenKey(user.uid), String(Date.now()));
+      localStorage.setItem(seenKey(uid), String(Date.now()));
     } catch {}
-  }, [markSeenOnMount, user]);
+  }, [markSeenOnMount, uid]);
 
   return cutoff;
 }

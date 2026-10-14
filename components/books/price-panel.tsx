@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { ArrowUpRight, FileText, Layers, MessageCircle, Package, Puzzle } from "lucide-react";
 import { Stagger, StaggerItem } from "@/components/motion/reveal";
-import { formatUsd, orderHref, orderMessage, priceDetails, priceLabels } from "@/lib/pricing";
-import { site } from "@/lib/site";
+import { formatUsd, orderLink, priceDetails, priceLabels } from "@/lib/pricing";
 import type { Book, PriceKind } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -23,7 +22,7 @@ export function PricePanel({ book }: { book: Book }) {
       <Stagger className="mt-5 grid gap-4 sm:grid-cols-2">
         {book.prices.map((price, i) => {
           const Icon = icons[price.kind];
-          const order = orderHref(orderMessage(book.title, price));
+          const href = orderLink({ book: book.slug, kind: price.kind });
           const featured = i === book.prices.length - 1;
           return (
             <StaggerItem key={price.kind}>
@@ -51,14 +50,12 @@ export function PricePanel({ book }: { book: Book }) {
                   {priceDetails[price.kind]}
                 </p>
                 <Link
-                  href={order.href}
-                  {...(order.external ? { target: "_blank", rel: "noreferrer" } : {})}
+                  href={href}
                   className={cn(
                     "mt-6 inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-medium transition-colors",
                     featured ? "bg-forest text-forest-ink hover:bg-ink hover:text-paper" : "border border-line hover:border-ink",
                   )}
                 >
-                  {order.external ? <MessageCircle className="size-4" aria-hidden /> : null}
                   {price.kind === "chapter" ? "Choose chapters" : "Order now"}
                   <ArrowUpRight className="size-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden />
                 </Link>
@@ -71,7 +68,7 @@ export function PricePanel({ book }: { book: Book }) {
       {chapterWise && (
         <p className="mt-4 flex items-start gap-2 text-sm text-ink-soft">
           <MessageCircle className="mt-0.5 size-4 shrink-0 text-ember" aria-hidden />
-          Message on WhatsApp{site.whatsapp ? "" : " (via the contact page)"} to pick the chapters you need — or get every chapter combined.
+          Choose “Per chapter” and tell us which chapters you need in the order form — or get every chapter combined.
         </p>
       )}
     </div>

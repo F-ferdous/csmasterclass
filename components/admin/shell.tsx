@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { Check, Copy, ExternalLink, Loader2, ShieldAlert } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { DashboardFrame } from "@/components/dashboard/frame";
+import { db } from "@/lib/firebase";
 import { adminNav } from "./nav";
 
 /** Admin-only frame: sidebar, top bar and access control. */
@@ -21,6 +23,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
     }
   }, [configured, loading, user, router, pathname]);
 
+  const newOrders = useNewOrderCount(isAdmin);
+
   if (!configured) return <Centered><p className="text-ink-soft">Firebase is not configured for this site.</p></Centered>;
   if (loading || !user) return <Centered><Loader2 className="size-6 animate-spin text-ink-soft" /></Centered>;
   if (!isAdmin) return <NoAccess uid={user.uid} email={user.email ?? ""} hasProfile={Boolean(profile)} />;
@@ -31,11 +35,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
       subtitle="Admin dashboard"
       name={profile?.name || user.displayName || "Admin"}
       email={user.email ?? ""}
+      badges={{ "/admin/orders": newOrders }}
       actions={
         <>
-          <Link href="/dashboard" className="hidden items-center gap-1.5 rounded-full border border-line px-4 py-2 text-sm hover:border-ink md:inline-flex">
-            Student view
-          </Link>
           <Link href="/" target="_blank" className="hidden items-center gap-1.5 rounded-full border border-line px-4 py-2 text-sm hover:border-ink sm:inline-flex">
             View site <ExternalLink className="size-3.5" aria-hidden />
           </Link>
@@ -45,6 +47,20 @@ export function AdminShell({ children }: { children: ReactNode }) {
       {children}
     </DashboardFrame>
   );
+}
+
+/** Orders still marked "new" — shown as a badge on Orders in the sidebar. */
+function useNewOrderCount(enabled: boolean) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!enabled) return;
+    return onSnapshot(
+      query(collection(db(), "orders"), where("status", "==", "new")),
+      (snap) => setCount(snap.size),
+      () => setCount(0),
+    );
+  }, [enabled]);
+  return enabled ? count : 0;
 }
 
 function Centered({ children }: { children: ReactNode }) {

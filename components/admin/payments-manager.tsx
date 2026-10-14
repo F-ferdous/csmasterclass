@@ -77,7 +77,7 @@ export function PaymentsManager() {
         () => setPayments([]),
       ),
       onSnapshot(collection(d, "batches"), (snap) => setBatches(sortBatches(snap.docs.map((x) => normalizeBatch(x.id, x.data()))))),
-      onSnapshot(collection(d, "users"), (snap) => setUsers(snap.docs.map((x) => normalizeProfile(x.id, x.data())))),
+      onSnapshot(collection(d, "students"), (snap) => setUsers(snap.docs.map((x) => normalizeProfile(x.id, x.data())))),
       onSnapshot(collection(d, "enrollments"), (snap) => setEnrollments(snap.docs.map((x) => normalizeEnrollment(x.id, x.data())))),
     ];
     return () => stops.forEach((s) => s());
@@ -707,7 +707,7 @@ function ReceiptStep({
     setError("");
     try {
       // The live users list then picks it up and the Send button appears.
-      await updateDoc(doc(db(), "users", student.uid), { parentPhone: phone, updatedAt: serverTimestamp() });
+      await updateDoc(doc(db(), "students", student.uid), { parentPhone: phone, updatedAt: serverTimestamp() });
     } catch (err) {
       setError((err as Error).message);
     }

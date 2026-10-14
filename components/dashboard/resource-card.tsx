@@ -53,9 +53,18 @@ const isRecent = (d: Date | null) => Boolean(d) && Date.now() - d!.getTime() < N
 
 type CardResource = Pick<Resource, "title" | "description" | "kind" | "url" | "file" | "createdAt">;
 
+/** Where a signed-in student opens an uploaded study material (streamed by the server). */
+export const studentFileUrl = (resourceId: string) => `/api/student/files/resource/${resourceId}`;
+
 /** How a study material looks to students (also the admin preview — pass `preview` to disable links). */
-export function ResourceCard({ resource: r, preview = false, audience }: { resource: CardResource; preview?: boolean; audience?: string }) {
-  const { url: fileUrl, error, loading } = useFileUrl(preview ? undefined : r.file?.path);
+/**
+ * `fileHref` (students) opens an uploaded file through the server; without it (admins) the card
+ * asks Firebase Storage for a download link.
+ */
+export function ResourceCard({ resource: r, preview = false, audience, fileHref }: { resource: CardResource; preview?: boolean; audience?: string; fileHref?: string }) {
+  const storageFile = useFileUrl(preview || fileHref ? undefined : r.file?.path);
+  const fileUrl = r.file && fileHref ? fileHref : storageFile.url;
+  const { error, loading } = storageFile;
   const [playing, setPlaying] = useState(false);
   const yt = r.kind === "video" ? youtubeId(r.url) : "";
   const href = r.file ? fileUrl : r.url;

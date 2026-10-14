@@ -3,6 +3,10 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
+  // Dev logs would otherwise print server-action arguments — including sign-in and registration passwords.
+  logging: { serverFunctions: false },
+  // Students' homework files (up to 25 MB) are uploaded through a Server Function.
+  experimental: { serverActions: { bodySizeLimit: "26mb" } },
   images: {
     // Book covers uploaded through /admin live in Firebase Storage.
     remotePatterns: [

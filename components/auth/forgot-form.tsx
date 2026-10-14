@@ -59,8 +59,16 @@ export function ForgotForm() {
         <div className="mt-10">
           <p className="eyebrow">Account recovery</p>
           <h1 className="mt-3 font-display text-4xl sm:text-5xl">Forgot password?</h1>
-          <p className="mt-3 text-ink-soft">Enter the email you registered with and we&apos;ll send you a reset link.</p>
-          <div className="mt-8">
+          <div className="mt-6 rounded-2xl border border-forest/30 bg-forest/[0.07] p-5">
+            <p className="font-medium">Students</p>
+            <p className="mt-1 text-sm leading-relaxed text-ink-soft">
+              Ask your teacher to set a new password for you — it only takes a minute. Then sign in with your mobile number (or email) and the new
+              password, and change it from your Profile if you like.
+            </p>
+          </div>
+          <p className="mt-8 text-sm font-medium">Admins</p>
+          <p className="mt-1 text-sm text-ink-soft">Enter your admin email and we&apos;ll send you a reset link.</p>
+          <div className="mt-5">
             {!configured ? (
               <NotConfiguredNote />
             ) : (
@@ -78,9 +86,6 @@ export function ForgotForm() {
                 </Field>
                 <ErrorNote message={error} />
                 <SubmitButton loading={state === "loading"}>Send reset link</SubmitButton>
-                <p className="text-center text-sm text-ink-soft">
-                  Registered with your mobile number only? Ask your teacher to set a new password for you.
-                </p>
               </form>
             )}
           </div>

@@ -58,7 +58,7 @@ export const adminNav: NavGroup[] = [
   {
     group: "Business",
     items: [
-      { label: "Orders", href: "/admin/orders", icon: ShoppingBag, soon: true, description: "Book orders and their delivery status." },
+      { label: "Orders", href: "/admin/orders", icon: ShoppingBag, description: "Book orders from the website and WhatsApp — payment and delivery status." },
       { label: "Payments", href: "/admin/payments", icon: CreditCard, description: "Tuition and book payments." },
       { label: "Reports", href: "/admin/reports", icon: BarChart3, description: "Enrollment, sales and attendance trends." },
       { label: "Settings", href: "/admin/settings", icon: Settings, soon: true, description: "Site details, WhatsApp number, prices and admins." },

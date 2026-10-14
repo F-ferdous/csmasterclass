@@ -82,6 +82,7 @@ must **never appear on the Home page**.
 | `payments` | tuition/book/admission/other, month, amount (BDT), method, reference, receivedOn | own + admin; admin write |
 | `resources` | study materials: title, description, kind (pdf/doc/image/video/link), url **or** file{path,name,size,contentType} (Storage `resources/{id}/…`), audienceType/Values, **audienceKeys** (`all`, `class:10`, `batch:<id>`, `location:<id>`; empty when hidden), visible | students read only docs whose audienceKeys match their profile (query must be `array-contains-any` of exactly their keys); admin write. Same check in `storage.rules` |
 | `books` | book catalogue (falls back to `lib/seed-books.ts` when empty); **forClasses** `{"9": "must"\|"optional"}` (missing → built-in plan by slug); **level** `o-level`\|`a-level` | public read, admin write |
+| `orders/{id}` | ref (`CS-YYMMDD-XXXX`), uid (linked student or ""), name, phone, email, address, note, `items[{slug ("bundle" for the bundle), title, kind, price, qty}]`, subtotal, deliveryFee, discount, status (new/confirmed/sent/delivered/cancelled), source (website/whatsapp/phone/in-person), paymentStatus, paymentMethod, paymentRef, paidOn, **paymentId** (matching `payments` doc, type book, `orderId`), adminNote — helpers in `lib/orders.ts` | public create of a well-formed new/unpaid/website order only (`validWebOrder`); own read; admin all |
 | `messages`, `subscribers` | contact form, newsletter | public create, admin read |
 
 ## Status — completed
@@ -134,8 +135,11 @@ enter marks with absent toggle, publish/unpublish), Homework (set for batches, s
 reminder), Revision (per-batch syllabus weak topics + past-paper practice table), Parent reports (month picker, per-student attendance/tests/fee summary,
 comment, one-tap WhatsApp send, sent tracking + "Next" flow),
 Books, Resources (upload PDF/Word/PPT/Excel/image up to 50 MB, or video/other links; target class/batch/centre; hide/show), Announcements (targeted by class/batch/centre, pin, expiry, preview), Messages, Subscribers,
-Payments (monthly dues, record payments, WhatsApp reminders, WhatsApp receipts to parents after recording + send icon in ledger, ledger, CSV), Reports (KPIs + charts).
-Soon: Orders, Settings.
+Orders (`orders-manager.tsx`: Open/New/Confirmed/Sent/Delivered/Cancelled tabs, stats, search, CSV; drawer with status, customer,
+student link (auto-suggested by phone), items editor, delivery charge + discount, mark paid → writes/updates/deletes the matching
+book payment, Delivered + linked student → ticks `booksOwned`, WhatsApp confirm/paid/sent messages; New order for WhatsApp/phone/
+in-person; sidebar badge = new orders), Payments (monthly dues, record payments, WhatsApp reminders, WhatsApp receipts to parents after recording + send icon in ledger, ledger, CSV), Reports (KPIs + charts).
+Soon: Settings.
 
 **Installable app + push (PWA):** `app/manifest.ts` (start_url /dashboard, icons in `public/icons/` made from `app/icon.svg`
 with sharp), `public/sw.js` (push + notificationclick only, no caching; no-cache headers in next.config), registered by
@@ -146,8 +150,12 @@ iPhone: notifications only work after "Add to Home Screen" (iOS 16.4+).
 
 ## Next up / open items
 
-- **Orders** and **Settings** sections in admin (Settings could hold WhatsApp number, payment instructions, prices).
-- `site.whatsapp` in `lib/site.ts` is empty → "Order" buttons fall back to /contact. Ask the user for the number.
+- **Settings** section in admin (WhatsApp number, payment instructions, prices). Orders is built (2026-10-14).
+- Public **order form** `/order` (`components/books/order-form.tsx`): every "Order now"/"Get the bundle" button links to it via
+  `orderLink()` in `lib/pricing.ts` (`?book=slug&kind=hard` or `?bundle=soft`). Payment details aren't shown to customers yet
+  (needs the bKash/Nagad numbers) — the confirm message says "we'll share the payment details".
+- Ideas not built: students seeing their orders in the dashboard (rules already allow own read); push/email alert to admin on a new order.
+- `site.whatsapp` in `lib/site.ts` is empty → the order success page hides its "Message us on WhatsApp" button. Ask the user for the number.
 - Payment instructions for students (bKash/Nagad numbers) not provided yet.
 - **AS Computer Science Handbook prices** — ask the user (soft/hard BDT); the book shows without a price until then.
 - Idea: recording a book payment in Admin → Payments could auto-tick that book in the student's "Books bought" (not built).

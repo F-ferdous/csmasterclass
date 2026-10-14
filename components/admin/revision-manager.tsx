@@ -34,7 +34,7 @@ export function RevisionManager() {
     const stops = [
       onSnapshot(collection(d, "batches"), (snap) => setBatches(sortBatches(snap.docs.map((x) => normalizeBatch(x.id, x.data())))), () => setBatches([])),
       onSnapshot(query(collection(d, "locations"), orderBy("order", "asc")), (snap) => setLocations(snap.docs.map((x) => normalizeLocation(x.id, x.data())))),
-      onSnapshot(collection(d, "users"), (snap) => setUsers(snap.docs.map((x) => normalizeProfile(x.id, x.data())))),
+      onSnapshot(collection(d, "students"), (snap) => setUsers(snap.docs.map((x) => normalizeProfile(x.id, x.data())))),
       onSnapshot(collection(d, "enrollments"), (snap) => setEnrollments(snap.docs.map((x) => normalizeEnrollment(x.id, x.data())))),
       onSnapshot(collection(d, "syllabusProgress"), (snap) => setSyllabus(Object.fromEntries(snap.docs.map((x) => [x.id, normalizeSyllabusProgress(x.data())])))),
       onSnapshot(collection(d, "pastPapers"), (snap) => setPapers(Object.fromEntries(snap.docs.map((x) => [x.id, normalizePastPapers(x.data())])))),

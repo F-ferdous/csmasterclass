@@ -1,21 +1,21 @@
 "use client";
 
-import { deleteField, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { motion } from "motion/react";
 import { ListChecks } from "lucide-react";
 import { useState } from "react";
 import { EmptyState, ErrorText, PageHeader, Spinner } from "@/components/admin/ui";
-import { useAuth } from "@/components/auth/auth-provider";
+import { saveTopicConfidence } from "@/app/student-data";
+import { useStudentSession } from "@/components/auth/student-session";
 import { ease } from "@/components/motion/reveal";
-import { db } from "@/lib/firebase";
-import { confidenceLabels, confidenceLevels, confidenceStyles, syllabusFor, unitsOf, type Confidence } from "@/lib/syllabus";
+import { confidenceLabels, confidenceLevels, confidenceStyles, syllabusFor, unitsOf, type Confidence, type TopicProgress } from "@/lib/syllabus";
 import { cn } from "@/lib/utils";
 import { useMySyllabus } from "./use-my-records";
+import { setStudentData } from "./use-student-data";
 
 type Filter = "all" | "help" | "unrated";
 
 export function StudentSyllabus() {
-  const { user, profile } = useAuth();
+  const { student: profile } = useStudentSession();
   const saved = useMySyllabus();
   // Optimistic ratings while a save is in flight.
   const [pending, setPending] = useState<Record<string, Confidence>>({});
@@ -25,7 +25,7 @@ export function StudentSyllabus() {
   const syllabus = syllabusFor(profile?.classLevel ?? "");
 
   if (saved === null) return <Spinner />;
-  if (!syllabus || !user) {
+  if (!syllabus || !profile) {
     return (
       <div className="space-y-8">
         <PageHeader title="Syllabus" description="Rate how confident you feel on every topic." />
@@ -41,11 +41,15 @@ export function StudentSyllabus() {
     setPending((p) => ({ ...p, [id]: next }));
     setError("");
     try {
-      await setDoc(
-        doc(db(), "syllabusProgress", user!.uid),
-        { topics: { [id]: next === 0 ? deleteField() : { confidence: next, updatedAt: serverTimestamp() } }, updatedAt: serverTimestamp() },
-        { merge: true },
-      );
+      const result = await saveTopicConfidence(id, next);
+      if (!result.ok) setError(result.error);
+      else
+        setStudentData<Record<string, TopicProgress>>("syllabus", (cur) => {
+          const rest = { ...(cur ?? {}) };
+          if (next === 0) delete rest[id];
+          else rest[id] = { confidence: next, updatedAt: new Date() };
+          return rest;
+        });
     } catch {
       setError("Couldn't save — check your connection and try again.");
     }

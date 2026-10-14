@@ -1,20 +1,17 @@
 "use client";
 
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
-import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import { motion } from "motion/react";
 import { BookMarked, CheckCircle2, ExternalLink, FileText, Link2, Paperclip, Send } from "lucide-react";
 import { useState } from "react";
 import { adminInput, EmptyState, ErrorText, PageHeader, PrimaryButton, Spinner } from "@/components/admin/ui";
-import { useAuth } from "@/components/auth/auth-provider";
+import { submitHomework } from "@/app/student-data";
 import { ease } from "@/components/motion/reveal";
 import { prettyDate } from "@/lib/attendance";
-import { db } from "@/lib/firebase";
-import { storage } from "@/lib/firebase-client";
 import { dueText, homeworkStatus, statusLabels, statusStyles, type Homework, type HomeworkStatus, type Submission } from "@/lib/homework";
-import { contentTypeOf, fileAccept, formatBytes, isAllowedType, isWebUrl, storageErrorMessage } from "@/lib/resources";
+import { contentTypeOf, fileAccept, formatBytes, isAllowedType, isWebUrl } from "@/lib/resources";
 import { cn } from "@/lib/utils";
 import { useMyHomework } from "./use-homework";
+import { refreshStudentData } from "./use-student-data";
 
 const MAX_UPLOAD = 25 * 1024 * 1024;
 const order: HomeworkStatus[] = ["overdue", "todo", "submitted", "late", "marked"];
@@ -63,7 +60,6 @@ export function StudentHomework() {
 }
 
 function HomeworkCard({ homework: h, submission: s, status, index }: { homework: Homework; submission: Submission | null; status: HomeworkStatus; index: number }) {
-  const { user, profile } = useAuth();
   const [editing, setEditing] = useState(!s);
   const [link, setLink] = useState(s?.link ?? "");
   const [note, setNote] = useState(s?.note ?? "");
@@ -81,43 +77,28 @@ function HomeworkCard({ homework: h, submission: s, status, index }: { homework:
   }
 
   async function submit() {
-    if (!user) return;
     if (link.trim() && !isWebUrl(link)) return setError("Paste the full link, starting with https://");
     if (!link.trim() && !file && !s?.file) return setError("Add a link to your work (or attach a file).");
     setSaving(true);
     setError("");
+    const form = new FormData();
+    form.set("homeworkId", h.id);
+    form.set("link", link.trim());
+    form.set("note", note.trim());
+    if (file) form.set("file", new File([file], file.name, { type: contentTypeOf(file) }));
     try {
-      let uploaded = s?.file ?? null;
-      if (file) {
-        const contentType = contentTypeOf(file);
-        const path = `homework/${h.id}/${user.uid}/${Date.now()}-${file.name.replace(/[^\w.-]+/g, "-").slice(-80)}`;
-        await uploadBytes(storageRef(storage(), path), file, { contentType });
-        uploaded = { path, name: file.name, size: file.size, contentType };
+      const result = await submitHomework(form);
+      if (!result.ok) {
+        setError(result.error);
+      } else {
+        setFile(null);
+        setEditing(false);
+        await refreshStudentData("homework");
       }
-      await setDoc(
-        doc(db(), "homework", h.id, "submissions", user.uid),
-        { uid: user.uid, name: profile?.name ?? "", link: link.trim(), note: note.trim(), file: uploaded, submittedAt: serverTimestamp(), updatedAt: serverTimestamp() },
-        { merge: true },
-      );
-      setFile(null);
-      setEditing(false);
-    } catch (err) {
-      const code = (err as { code?: string }).code ?? "";
-      setError(code.startsWith("storage/") ? storageErrorMessage(err) : "Couldn't submit — check your connection and try again.");
+    } catch {
+      setError("Couldn't submit — check your connection and try again.");
     }
     setSaving(false);
-  }
-
-  async function openFile() {
-    if (!s?.file) return;
-    const tab = window.open("", "_blank");
-    try {
-      const url = await getDownloadURL(storageRef(storage(), s.file.path));
-      if (tab) tab.location.href = url;
-    } catch (err) {
-      tab?.close();
-      setError(storageErrorMessage(err));
-    }
   }
 
   return (
@@ -166,9 +147,9 @@ function HomeworkCard({ homework: h, submission: s, status, index }: { homework:
             </a>
           )}
           {s.file && (
-            <button type="button" onClick={openFile} className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 hover:border-ink">
+            <a href={`/api/student/files/homework/${h.id}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 hover:border-ink">
               <FileText className="size-3.5" aria-hidden /> {s.file.name}
-            </button>
+            </a>
           )}
           {!marked && (
             <button type="button" onClick={() => setEditing(true)} className="ml-auto text-sm underline underline-offset-4">

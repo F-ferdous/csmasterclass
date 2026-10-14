@@ -89,7 +89,7 @@ export function ResourcesManager() {
       ),
       onSnapshot(collection(d, "batches"), (snap) => setBatches(sortBatches(snap.docs.map((x) => normalizeBatch(x.id, x.data()))))),
       onSnapshot(query(collection(d, "locations"), orderBy("order", "asc")), (snap) => setLocations(snap.docs.map((x) => normalizeLocation(x.id, x.data())))),
-      onSnapshot(collection(d, "users"), (snap) => setStudents(snap.docs.map((x) => normalizeProfile(x.id, x.data())).filter((u) => u.role === "student"))),
+      onSnapshot(collection(d, "students"), (snap) => setStudents(snap.docs.map((x) => normalizeProfile(x.id, x.data())).filter((u) => u.role === "student"))),
     ];
     return () => stops.forEach((s) => s());
   }, []);

@@ -106,23 +106,6 @@ async function cancelActive(uid: string, statuses: EnrollmentStatus[] = activeSt
   await wb.commit();
 }
 
-/**
- * Student side: ask to move to another batch. Replaces any earlier open request but keeps the
- * confirmed seat — the student stays in their batch until an admin confirms the move.
- */
-export async function requestSeat(applicant: Applicant, source: "profile") {
-  if (!applicant.batchId) return;
-  await cancelActive(applicant.uid, ["pending", "waitlisted"]);
-  await addDoc(collection(db(), "enrollments"), {
-    ...applicant,
-    status: "pending",
-    source,
-    note: "",
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-}
-
 /** Admin side: place a student in a batch directly (recorded as confirmed). */
 export async function placeStudent(applicant: Applicant, source: "admin" | "sync" = "admin") {
   if (source === "admin") await cancelActive(applicant.uid);
@@ -162,7 +145,7 @@ export async function decideEnrollment(
     updatedAt: serverTimestamp(),
     decidedAt: serverTimestamp(),
   });
-  if (status === "confirmed") wb.update(doc(db(), "users", record.uid), { batchId, locationId, classLevel, updatedAt: serverTimestamp() });
+  if (status === "confirmed") wb.update(doc(db(), "students", record.uid), { batchId, locationId, classLevel, updatedAt: serverTimestamp() });
   await wb.commit();
 }
 

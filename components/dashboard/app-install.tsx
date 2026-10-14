@@ -1,12 +1,11 @@
 "use client";
 
-import { deleteField, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { AnimatePresence, motion } from "motion/react";
 import { Bell, BellOff, Download, Share, Smartphone, X } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { useAuth } from "@/components/auth/auth-provider";
-import { db } from "@/lib/firebase";
-import { endpointKey, vapidPublicKey } from "@/lib/push";
+import { removePushSubscription, savePushSubscription } from "@/app/student-data";
+import { useStudentSession } from "@/components/auth/student-session";
+import { vapidPublicKey } from "@/lib/push";
 import { cn } from "@/lib/utils";
 
 /* ───────────── Service worker + install prompt (shared, module level) ───────────── */
@@ -86,7 +85,7 @@ async function detectPush(ios: boolean, standalone: boolean): Promise<PushState>
 }
 
 function usePush() {
-  const { user } = useAuth();
+  const { student: user } = useStudentSession();
   const { standalone, ios } = useInstall();
   const [state, setState] = useState<PushState>("loading");
   const [busy, setBusy] = useState(false);
@@ -117,11 +116,8 @@ function usePush() {
       await navigator.serviceWorker.ready;
       const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) }));
       const json = sub.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } };
-      await setDoc(
-        doc(db(), "pushSubscriptions", user.uid),
-        { subs: { [endpointKey(json.endpoint)]: { endpoint: json.endpoint, keys: json.keys, device: navigator.userAgent.slice(0, 120), at: serverTimestamp() } }, updatedAt: serverTimestamp() },
-        { merge: true },
-      );
+      const saved = await savePushSubscription(json, navigator.userAgent);
+      if (!saved.ok) throw new Error(saved.error);
       setState("on");
     } catch {
       setError("Couldn't turn on notifications on this device. Try again, or check your browser settings.");
@@ -138,7 +134,7 @@ function usePush() {
       const reg = await navigator.serviceWorker.getRegistration("/");
       const sub = await reg?.pushManager.getSubscription();
       if (sub) {
-        await setDoc(doc(db(), "pushSubscriptions", user.uid), { subs: { [endpointKey(sub.endpoint)]: deleteField() }, updatedAt: serverTimestamp() }, { merge: true });
+        await removePushSubscription(sub.endpoint);
         await sub.unsubscribe();
       }
       setState("off");
