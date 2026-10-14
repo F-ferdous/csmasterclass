@@ -5,14 +5,26 @@ import { usePathname, useRouter } from "next/navigation";
 import { LayoutDashboard } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
+import { homeworkStatus } from "@/lib/homework";
+import { useAppSetup } from "./app-install";
 import { DashboardFrame, FullScreenSpinner } from "./frame";
 import { studentNav } from "./student-nav";
+import { isNewSince, useMyAnnouncements, useSeenCutoff } from "./use-announcements";
+import { useMyHomework } from "./use-homework";
 
 /** Signed-in students only: sidebar, top bar and redirect to sign-in. */
 export function StudentShell({ children }: { children: ReactNode }) {
   const { user, profile, isAdmin, loading, configured } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  useAppSetup();
+  const homework = useMyHomework();
+  const announcements = useMyAnnouncements();
+  const seen = useSeenCutoff(false);
+  const badges = {
+    "/dashboard/homework": (homework ?? []).filter((h) => ["todo", "overdue"].includes(homeworkStatus(h.homework, h.submission))).length,
+    "/dashboard/announcements": pathname === "/dashboard/announcements" ? 0 : (announcements ?? []).filter((a) => isNewSince(a, seen)).length,
+  };
 
   useEffect(() => {
     // Keep any filters in the URL (e.g. ?batch=…) so sign-in returns to the same view.
@@ -31,6 +43,7 @@ export function StudentShell({ children }: { children: ReactNode }) {
   return (
     <DashboardFrame
       nav={studentNav}
+      badges={badges}
       subtitle="Student dashboard"
       name={profile?.name || user.displayName || "Student"}
       email={profile?.email || profile?.phone || user.email || ""}

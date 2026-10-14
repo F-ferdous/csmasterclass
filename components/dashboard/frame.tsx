@@ -28,12 +28,14 @@ type Props = {
   subtitle: string;
   name: string;
   email: string;
+  /** Small counts beside nav items, keyed by href (e.g. homework to do). */
+  badges?: Record<string, number>;
   /** Extra buttons in the top bar (left of the theme toggle). */
   actions?: ReactNode;
 };
 
 /** Shared dashboard chrome: sidebar (drawer on mobile), sticky top bar, content area. */
-export function DashboardFrame({ children, nav, subtitle, name, email, actions }: Props) {
+export function DashboardFrame({ children, nav, subtitle, name, email, actions, badges = {} }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const [navOn, setNavOn] = useState<string | null>(null);
@@ -79,6 +81,14 @@ export function DashboardFrame({ children, nav, subtitle, name, email, actions }
                     >
                       <item.icon className="size-[18px]" aria-hidden />
                       <span className="flex-1">{item.label}</span>
+                      {(badges[item.href] ?? 0) > 0 && (
+                        <span
+                          aria-label={`${badges[item.href]} new`}
+                          className={cn("min-w-5 rounded-full px-1.5 py-0.5 text-center text-[10px] font-semibold tabular-nums", active ? "bg-paper/25 text-paper" : "bg-ember text-white")}
+                        >
+                          {badges[item.href]}
+                        </span>
+                      )}
                       {item.soon && (
                         <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium", active ? "bg-paper/20" : "bg-paper-2 text-ink-faint")}>
                           Soon

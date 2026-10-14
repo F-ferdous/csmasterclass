@@ -1,6 +1,6 @@
 "use client";
 
-import { collection, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, setDoc, where } from "firebase/firestore";
+import { collection, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
 import { AnimatePresence, motion } from "motion/react";
 import { AlertTriangle, CalendarClock, CheckCheck, ClipboardCheck, Download, History, Save } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -236,20 +236,20 @@ function TakeAttendance({ batch, date, roster, pendingCount }: { batch: Batch; d
     setError("");
     try {
       // Keep marks for students who've since left the batch, so history stays complete.
-      await setDoc(
-        doc(db(), "attendance", sessionId(batch.id, date)),
-        {
-          batchId: batch.id,
-          date,
-          start: scheduled?.start ?? existing?.start ?? "",
-          end: scheduled?.end ?? existing?.end ?? "",
-          records,
-          note: note.trim(),
-          updatedAt: serverTimestamp(),
-          ...(existing ? {} : { createdAt: serverTimestamp() }),
-        },
+      const id = sessionId(batch.id, date);
+      const start = scheduled?.start ?? existing?.start ?? "";
+      const end = scheduled?.end ?? existing?.end ?? "";
+      const wb = writeBatch(db());
+      wb.set(
+        doc(db(), "attendance", id),
+        { batchId: batch.id, date, start, end, records, note: note.trim(), updatedAt: serverTimestamp(), ...(existing ? {} : { createdAt: serverTimestamp() }) },
         { merge: true },
       );
+      // Each student's own copy — the only attendance students can read (see firestore.rules).
+      for (const [uid, mark] of Object.entries(records)) {
+        wb.set(doc(db(), "studentAttendance", uid), { records: { [id]: { batchId: batch.id, date, start, end, mark } }, updatedAt: serverTimestamp() }, { merge: true });
+      }
+      await wb.commit();
       setDirty(false);
       setSavedAt(new Date());
       if (!existing) setExisting({ id: sessionId(batch.id, date), batchId: batch.id, date, start: "", end: "", records, note, updatedAt: new Date() });

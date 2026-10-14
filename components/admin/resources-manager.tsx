@@ -35,6 +35,7 @@ import {
 import type { Batch, Location, UserProfile } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { audienceError, AudiencePicker, audienceText, type Audience } from "./audience-picker";
+import { notifyStudents } from "./notify";
 import { adminInput, Drawer, DrawerBody, DrawerFooter, drawerFormClass, EmptyState, ErrorText, Field, GhostButton, PageHeader, PrimaryButton, Segmented, Spinner } from "./ui";
 
 const blank: Resource = {
@@ -342,6 +343,10 @@ function ResourceForm({
         updatedAt: serverTimestamp(),
       };
       await setDoc(ref, resource.id ? data : { ...data, createdAt: serverTimestamp() }, { merge: true });
+      // New (or newly shown) material → let students know (in the background).
+      if (visibleNow && (!resource.id || !resource.visible)) {
+        notifyStudents({ audience: { audienceType, audienceValues } }, { title: `New study material: ${data.title}`, body: "Tap to open it.", url: "/dashboard/materials" }).catch(() => {});
+      }
 
       // The old upload is no longer used (replaced, or switched to a link).
       if (resource.file && resource.file.path !== file?.path) await deleteObject(storageRef(storage(), resource.file.path)).catch(() => {});

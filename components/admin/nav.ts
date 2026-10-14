@@ -1,8 +1,12 @@
 import {
   BarChart3,
+  BookMarked,
   BookOpen,
   CalendarClock,
   ClipboardCheck,
+  ClipboardList,
+  FileStack,
+  FileText,
   CreditCard,
   FolderOpen,
   GraduationCap,
@@ -30,6 +34,10 @@ export const adminNav: NavGroup[] = [
       { label: "Students", href: "/admin/students", icon: GraduationCap, description: "Everyone who has joined, with class, centre, batch and contact details." },
       { label: "Enrollments", href: "/admin/enrollments", icon: UserPlus, description: "Batch admission requests and confirmed seats." },
       { label: "Attendance", href: "/admin/attendance", icon: ClipboardCheck, description: "Session-by-session attendance for each batch." },
+      { label: "Tests & marks", href: "/admin/tests", icon: ClipboardList, description: "Class tests and mock exams — enter marks and publish results to students." },
+      { label: "Homework", href: "/admin/homework", icon: BookMarked, description: "Set homework for batches, see submissions, mark and give feedback." },
+      { label: "Revision", href: "/admin/revision", icon: FileStack, description: "Syllabus confidence and past paper practice for each batch." },
+      { label: "Parent reports", href: "/admin/parent-reports", icon: FileText, description: "Monthly attendance, marks and fee summary for each parent, sent on WhatsApp." },
     ],
   },
   {

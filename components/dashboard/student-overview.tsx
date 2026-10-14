@@ -2,17 +2,22 @@
 
 import Link from "next/link";
 import { motion } from "motion/react";
-import { ArrowUpRight, BookOpen, CalendarDays, GraduationCap, MailWarning, MapPin, Megaphone, Phone, Sparkles } from "lucide-react";
+import { ArrowUpRight, BookMarked, BookOpen, CalendarDays, ClipboardCheck, GraduationCap, MailWarning, MapPin, Megaphone, Phone, Sparkles, TrendingUp } from "lucide-react";
 import { useState } from "react";
 import { BookCover } from "@/components/books/book-cover";
 import { ease } from "@/components/motion/reveal";
+import { attendanceRate } from "@/lib/attendance";
 import { resendVerification } from "@/lib/auth";
 import { classLabels } from "@/lib/coaching";
 import { formatBdt, lowestPrice } from "@/lib/pricing";
+import { dueText, homeworkStatus } from "@/lib/homework";
+import { approxGrade, percent } from "@/lib/tests";
+import { GetTheAppCard } from "./app-install";
 import { NextClassCard } from "./next-class";
 import { EnrollmentBadge } from "./enrollment-badge";
-import { studentSoonItems } from "./student-nav";
 import { useBooks } from "./use-books";
+import { useMyHomework } from "./use-homework";
+import { useMyAttendance, useMyResults } from "./use-my-records";
 import { useStudent } from "./use-student";
 import { WeekTimetable } from "./week-timetable";
 import { AnnouncementCard } from "./announcement-card";
@@ -40,6 +45,8 @@ export function StudentOverview() {
 
       {needsVerify && <VerifyBanner />}
 
+      <GetTheAppCard />
+
       <LatestAnnouncements />
 
       {loading ? (
@@ -50,12 +57,12 @@ export function StudentOverview() {
       ) : !batch ? (
         <motion.div {...rise(1)} className="rounded-3xl border border-dashed border-ember/50 bg-ember/[0.05] p-6 sm:p-8">
           <Sparkles className="size-6 text-ember" aria-hidden />
-          <h2 className="mt-4 font-display text-2xl">Choose your batch to see your classes</h2>
+          <h2 className="mt-4 font-display text-2xl">You&apos;re not in a batch right now</h2>
           <p className="mt-2 max-w-lg text-sm text-ink-soft">
-            Pick your class, centre and batch in your profile — your timetable and next class will appear here.
+            Ask to join a batch from your profile — once your teacher confirms it, your timetable and next class will appear here.
           </p>
           <Link href="/dashboard/profile" className="mt-5 inline-flex items-center gap-2 rounded-full bg-forest px-5 py-2.5 text-sm font-semibold text-forest-ink">
-            Choose my batch <ArrowUpRight className="size-4" aria-hidden />
+            Request a batch <ArrowUpRight className="size-4" aria-hidden />
           </Link>
         </motion.div>
       ) : (
@@ -135,21 +142,8 @@ export function StudentOverview() {
           </div>
         </motion.section>
 
-        <motion.section {...rise(5)} className="rounded-3xl bg-paper-2/70 p-5 sm:p-6">
-          <h2 className="font-display text-xl">Coming to your dashboard</h2>
-          <ul className="mt-4 space-y-2.5">
-            {studentSoonItems.map((s) => (
-              <li key={s.href} className="flex items-start gap-3 text-sm">
-                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-paper text-ink-soft">
-                  <s.icon className="size-4" aria-hidden />
-                </span>
-                <span>
-                  <span className="block font-medium">{s.label}</span>
-                  <span className="block text-xs text-ink-soft">{s.description}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
+        <motion.section {...rise(5)}>
+          <ProgressSnapshot />
         </motion.section>
       </div>
     </div>
@@ -222,4 +216,68 @@ function greeting() {
   const part = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
   const date = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
   return `${part} · ${date}`;
+}
+
+/** Attendance rate and latest published result, linking to the full pages. */
+function ProgressSnapshot() {
+  const attendance = useMyAttendance();
+  const results = useMyResults();
+  const rate = attendance ? attendanceRate(attendance.map((a) => a.mark)) : null;
+  const latest = results?.filter((r) => r.score !== null).at(-1);
+  const latestPct = latest ? percent(latest.score!, latest.max) : null;
+  const homework = useMyHomework();
+  const due = (homework ?? [])
+    .filter((h) => ["todo", "overdue"].includes(homeworkStatus(h.homework, h.submission)))
+    .sort((a, b) => a.homework.dueDate.localeCompare(b.homework.dueDate));
+
+  return (
+    <div className="grid h-full gap-4">
+      <Link href="/dashboard/homework" className="group rounded-3xl border border-line p-5 transition-colors hover:border-ink sm:p-6">
+        <p className="flex items-center justify-between text-sm text-ink-soft">
+          <span className="flex items-center gap-2">
+            <BookMarked className="size-4" aria-hidden /> Homework
+          </span>
+          <ArrowUpRight className="size-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden />
+        </p>
+        <p className="mt-2 font-display text-4xl tabular-nums">{homework === null ? "—" : due.length}</p>
+        <p className="mt-1 truncate text-xs text-ink-soft">
+          {due.length ? `${due[0].homework.title} · ${dueText(due[0].homework.dueDate)}` : "Nothing to submit right now"}
+        </p>
+      </Link>
+      <Link href="/dashboard/attendance" className="group rounded-3xl border border-line p-5 transition-colors hover:border-ink sm:p-6">
+        <p className="flex items-center justify-between text-sm text-ink-soft">
+          <span className="flex items-center gap-2">
+            <ClipboardCheck className="size-4" aria-hidden /> My attendance
+          </span>
+          <ArrowUpRight className="size-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden />
+        </p>
+        <p className="mt-2 font-display text-4xl tabular-nums">{rate === null ? "—" : `${rate}%`}</p>
+        <p className="mt-1 text-xs text-ink-soft">{attendance && attendance.length ? `${attendance.length} class${attendance.length === 1 ? "" : "es"} recorded` : "No classes recorded yet"}</p>
+      </Link>
+      <Link href="/dashboard/progress" className="group rounded-3xl border border-line p-5 transition-colors hover:border-ink sm:p-6">
+        <p className="flex items-center justify-between text-sm text-ink-soft">
+          <span className="flex items-center gap-2">
+            <TrendingUp className="size-4" aria-hidden /> Latest result
+          </span>
+          <ArrowUpRight className="size-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden />
+        </p>
+        {latest && latestPct !== null ? (
+          <>
+            <p className="mt-2 font-display text-4xl tabular-nums">
+              {latestPct}% <span className="text-lg text-ink-soft">· {approxGrade(latestPct)}</span>
+            </p>
+            <p className="mt-1 truncate text-xs text-ink-soft">
+              {latest.title}
+              {latest.classAverage !== null ? ` · class average ${latest.classAverage}%` : ""}
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="mt-2 font-display text-4xl">—</p>
+            <p className="mt-1 text-xs text-ink-soft">No results published yet</p>
+          </>
+        )}
+      </Link>
+    </div>
+  );
 }

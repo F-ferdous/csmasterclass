@@ -2,8 +2,8 @@
 
 import { randomBytes } from "node:crypto";
 import { FieldValue } from "firebase-admin/firestore";
-import { isAdminEmail } from "@/lib/admins";
 import { phoneKey } from "@/lib/phone";
+import { requireAdmin } from "@/lib/server/require-admin";
 import { adminAuth, adminDb, isCredentialError } from "@/lib/server/firebase-admin";
 import { hashPassword, verifyPassword, type StoredPassword } from "@/lib/server/passwords";
 import type { ClassLevel } from "@/lib/types";
@@ -46,15 +46,6 @@ function fail(err: unknown): { ok: false; error: string } {
   if (isCredentialError(err)) return { ok: false, error: setupError };
   console.error("[student-actions]", err);
   return { ok: false, error: "Something went wrong. Please try again." };
-}
-
-/** The caller must be a signed-in admin (verified from their Firebase ID token). */
-async function requireAdmin(idToken: string) {
-  const decoded = await adminAuth().verifyIdToken(idToken);
-  if (isAdminEmail(decoded.email)) return decoded;
-  const profile = await adminDb().doc(`users/${decoded.uid}`).get();
-  if (profile.get("role") === "admin") return decoded;
-  throw new Error("not-admin");
 }
 
 /** Checks an email/password against Firebase Auth without signing in (Identity Toolkit REST). */

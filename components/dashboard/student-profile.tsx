@@ -13,6 +13,7 @@ import { ErrorNote, Field, inputClass } from "@/components/auth/auth-ui";
 import { useCoaching } from "@/components/auth/use-locations";
 import { EnrollmentPicker } from "@/components/auth/enrollment-picker";
 import { requestSeat } from "@/lib/enrollments";
+import { AppSettings } from "./app-install";
 import { EnrollmentBadge } from "./enrollment-badge";
 import { ease } from "@/components/motion/reveal";
 
@@ -69,7 +70,10 @@ export function StudentProfile() {
         </div>
       </motion.aside>
 
-      <ProfileForm key={profile ? "loaded" : "empty"} />
+      <div className="space-y-8">
+        <ProfileForm key={profile ? "loaded" : "empty"} />
+        <AppSettings />
+      </div>
     </div>
   );
 }

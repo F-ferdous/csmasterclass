@@ -86,6 +86,71 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // Homework for batches (audienceKeys "batch:<id>", empty while hidden — same check as resources).
+    function canSeeHomework(id) {
+      return get(/databases/$(database)/documents/homework/$(id)).data.audienceKeys.hasAny(myAudienceKeys());
+    }
+
+    match /homework/{id} {
+      allow read: if isAdmin() || (signedIn() && resource.data.audienceKeys.hasAny(myAudienceKeys()));
+      allow write: if isAdmin();
+
+      // One submission per student (doc id = their uid). Students edit their answer until it's marked;
+      // only admins set mark / feedback / markedAt.
+      match /submissions/{uid} {
+        allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+        allow create: if isAdmin() || (
+          signedIn() && request.auth.uid == uid && canSeeHomework(id)
+          && request.resource.data.keys().hasOnly(['uid', 'name', 'link', 'note', 'file', 'submittedAt', 'updatedAt'])
+          && request.resource.data.uid == uid
+        );
+        allow update: if isAdmin() || (
+          signedIn() && request.auth.uid == uid && canSeeHomework(id)
+          && resource.data.get('markedAt', null) == null
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'link', 'note', 'file', 'submittedAt', 'updatedAt'])
+        );
+        allow delete: if isAdmin();
+      }
+    }
+
+    // Revision trackers, written by the student themselves.
+    match /syllabusProgress/{uid} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow write: if isAdmin() || (signedIn() && request.auth.uid == uid && request.resource.data.keys().hasOnly(['topics', 'updatedAt']));
+    }
+
+    match /pastPapers/{uid} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow write: if isAdmin() || (signedIn() && request.auth.uid == uid && request.resource.data.keys().hasOnly(['papers', 'updatedAt']));
+    }
+
+    // Web push subscriptions for each student's devices (endpoint + keys), used to send notifications.
+    match /pushSubscriptions/{uid} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow write: if isAdmin() || (signedIn() && request.auth.uid == uid && request.resource.data.keys().hasOnly(['subs', 'updatedAt']));
+    }
+
+    // Each student's own attendance and published test results (copied from the admin-only
+    // registers and tests/{id}, which hold the whole batch).
+    match /studentAttendance/{uid} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow write: if isAdmin();
+    }
+
+    match /studentResults/{uid} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow write: if isAdmin();
+    }
+
+    // Tests with every student's marks, and the parent-report log. Admins only.
+    match /tests/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    match /parentReports/{id} {
+      allow read, write: if isAdmin();
+    }
+
     // Notices for students. Signed-in users see published ones (audience is filtered in the app);
     // drafts are admin-only.
     match /announcements/{id} {

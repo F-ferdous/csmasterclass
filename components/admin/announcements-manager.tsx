@@ -22,6 +22,7 @@ import { normalizeProfile } from "@/lib/normalize";
 import type { Batch, Location, UserProfile } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { audienceError, AudiencePicker, audienceText, type Audience } from "./audience-picker";
+import { notifyStudents } from "./notify";
 import { adminInput, Drawer, DrawerBody, DrawerFooter, drawerFormClass, EmptyState, ErrorText, Field, GhostButton, PageHeader, PrimaryButton, Segmented, Spinner } from "./ui";
 
 type Tab = "published" | "draft" | "expired" | "all";
@@ -259,6 +260,10 @@ function AnnouncementForm({
     try {
       if (announcement.id) await setDoc(doc(db(), "announcements", announcement.id), data, { merge: true });
       else await addDoc(collection(db(), "announcements"), { ...data, createdAt: serverTimestamp() });
+      // Newly published → let students know (in the background).
+      if (status === "published" && (announcement.status !== "published" || !announcement.id)) {
+        notifyStudents({ audience: draft }, { title: data.title, body: data.body.slice(0, 140) || "New announcement from your teacher.", url: "/dashboard/announcements" }).catch(() => {});
+      }
       onDone();
     } catch (err) {
       setError((err as Error).message);

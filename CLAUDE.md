@@ -69,6 +69,15 @@ must **never appear on the Home page**.
 | `enrollments` | registrations (`uid: ""`, source signup, phoneKey, parentPhone — server-written) and batch-change requests (source profile): pending → confirmed/waitlisted/rejected/cancelled | students create own `profile` requests only; admin decides (registrations via server) |
 | `enrollmentSecrets/{id}` | scrypt hash of the password chosen at registration, until first sign-in | server only |
 | `attendance/{batchId}_{YYYY-MM-DD}` | register: `records{uid: present/late/absent/excused}`, note | admin only |
+| `studentAttendance/{uid}` | student's own copy: `records{sessionId: {batchId,date,start,end,mark}}`, written with each register save | own read; admin write |
+| `tests/{id}` | title, type (class-test/mock/quiz), paper, date, maxMarks, batchIds, `marks{uid: number\|"absent"}`, published | admin only |
+| `studentResults/{uid}` | `results{testId: {title,type,paper,date,max,score(null=absent),classAverage,highest}}` — synced by `syncResults()` in `lib/tests.ts` on publish/unpublish/save/delete | own read; admin write |
+| `homework/{id}` | title, instructions, link, batchIds, dueDate, maxMarks (null = feedback only), visible, **audienceKeys** (`batch:<id>`, empty when hidden) | students of those batches read; admin write |
+| `homework/{id}/submissions/{uid}` | link, note, file (Storage `homework/{id}/{uid}/…`), submittedAt; admin adds mark, feedback, markedAt | own read/write until marked; admin all |
+| `syllabusProgress/{uid}` | `topics{topicId: {confidence 1-3}}` — topics defined in `lib/syllabus.ts` (0478/2210 for 9–10, 9618 AS/A2 for 11–12) | own read/write; admin read |
+| `pastPapers/{uid}` | `papers{"2024-s-12": {score, max, at}}` — catalogue in `lib/past-papers.ts` | own read/write; admin read |
+| `pushSubscriptions/{uid}` | `subs{key: {endpoint, keys, device}}` web-push subscriptions | own write; admin read/write |
+| `parentReports/{YYYY-MM}_{uid}` | month, uid, comment, sentAt (WhatsApp report log) | admin only |
 | `announcements` | title, body, category, priority, audienceType/Values, pinned, status, expiresOn | published readable by signed-in users; admin write |
 | `payments` | tuition/book/admission/other, month, amount (BDT), method, reference, receivedOn | own + admin; admin write |
 | `resources` | study materials: title, description, kind (pdf/doc/image/video/link), url **or** file{path,name,size,contentType} (Storage `resources/{id}/…`), audienceType/Values, **audienceKeys** (`all`, `class:10`, `batch:<id>`, `location:<id>`; empty when hidden), visible | students read only docs whose audienceKeys match their profile (query must be `array-contains-any` of exactly their keys); admin write. Same check in `storage.rules` |
@@ -103,20 +112,32 @@ or 1200 combined, Mock Exam 449/1399; Bundle 1999 soft / 4500 hard (best value, 
   scrypt). Credentials: `service-account.json` in project root (git-ignored) or `FIREBASE_SERVICE_ACCOUNT_KEY`, else host ADC.
 
 **Student dashboard (`/dashboard`):** Overview (next-class countdown, batch + seat status, centre,
-week timetable, latest announcements, books), Schedule, Announcements, Study materials (filter by type, YouTube plays in a lightbox), Books, Payments, Profile
-(change batch → new enrollment request). Soon: Attendance, Progress.
+week timetable, latest announcements, books, attendance % + latest result), Schedule, Announcements, Attendance (rate, counts,
+per-month list), Progress (stat tiles, score trend chart, results vs class average, approx. grade from `approxGrade()`), Homework (submit link/file,
+see mark + feedback; nav badge for to-do), Syllabus (rate topics Need help/Getting there/Confident), Past papers (grid by session,
+log score), App & notifications (Profile; install card on Overview), Study materials (filter by type, YouTube plays in a lightbox), Books, Payments, Profile
+(change batch → new enrollment request). 
 
 **Admin dashboard (`/admin`):** Overview, Batches (per-day times, fee, seats, student counts),
 Locations, Students (search/filter/edit/admin toggle/CSV), Enrollments (confirm/waitlist/decline,
-capacity, bulk, sync existing), Attendance (take register, history grid, rates, CSV),
+capacity, bulk), Attendance (take register, history grid, rates, CSV), Tests & marks (create test for batches,
+enter marks with absent toggle, publish/unpublish), Homework (set for batches, submissions, mark + feedback, WhatsApp
+reminder), Revision (per-batch syllabus weak topics + past-paper practice table), Parent reports (month picker, per-student attendance/tests/fee summary,
+comment, one-tap WhatsApp send, sent tracking + "Next" flow),
 Books, Resources (upload PDF/Word/PPT/Excel/image up to 50 MB, or video/other links; target class/batch/centre; hide/show), Announcements (targeted by class/batch/centre, pin, expiry, preview), Messages, Subscribers,
 Payments (monthly dues, record payments, WhatsApp reminders, WhatsApp receipts to parents after recording + send icon in ledger, ledger, CSV), Reports (KPIs + charts).
 Soon: Orders, Settings.
 
+**Installable app + push (PWA):** `app/manifest.ts` (start_url /dashboard, icons in `public/icons/` made from `app/icon.svg`
+with sharp), `public/sw.js` (push + notificationclick only, no caching; no-cache headers in next.config), registered by
+`useAppSetup()` in the student shell. Push = standard web-push with VAPID keys in `.env.local` (`NEXT_PUBLIC_VAPID_PUBLIC_KEY`,
+`VAPID_PRIVATE_KEY`); `app/push-actions.ts` `sendPush` (admin-checked, only known push-service hosts), `components/admin/notify.ts`
+`notifyStudents()` fires on: announcement published, resource shared, test results published, homework set (toggle).
+iPhone: notifications only work after "Add to Home Screen" (iOS 16.4+).
+
 ## Next up / open items
 
 - **Orders** and **Settings** sections in admin (Settings could hold WhatsApp number, payment instructions, prices).
-- Student **Attendance** (private per-student view), **Progress**, **Study materials**.
 - `site.whatsapp` in `lib/site.ts` is empty → "Order" buttons fall back to /contact. Ask the user for the number.
 - Payment instructions for students (bKash/Nagad numbers) not provided yet.
 - Firebase **Storage** not enabled (needs Blaze plan — user must do it in the console) → file uploads in Admin → Resources and
@@ -132,6 +153,9 @@ Soon: Orders, Settings.
   firebase-admin, and `next dev --port 3100`. Tested 2026-10-13: register → pending msg → confirm/waitlist/decline → phone & email sign-in →
   materials per batch → batch change → password reset → tampering blocked (all passed).
 - Flow/rules tests: run against emulators (Auth + Firestore + Storage) with firebase-admin pointed at them. Emulator needs Java 21 for current firebase-tools (Mac has 17) → use `npx firebase-tools@13.35.1`; port 8080 is taken by Docker.
+- **Deploying**: add `NEXT_PUBLIC_VAPID_PUBLIC_KEY` to apphosting.yaml and `VAPID_PRIVATE_KEY` as an App Hosting secret; push
+  needs HTTPS (works on the live site, not on plain http://localhost from a phone).
+- Push delivery to a real phone is untested (the test browser blocks notification permission) — test on a phone after deploy.
 - Placeholder content to replace: testimonials, results, milestones, recognitions (`lib/content.ts`), owner name/email/socials (`lib/site.ts`).
 - Printable payment receipts (suggested, not built).
 - Automatic SMS receipts (needs a BD bulk-SMS account, e.g. BulkSMSBD/Alpha SMS, + server-side API key) — WhatsApp version is built (`receiptMessage` in `lib/payments.ts`).

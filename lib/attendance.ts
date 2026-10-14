@@ -83,3 +83,23 @@ export function attendanceRate(marksForStudent: Mark[]) {
   if (!counted.length) return null;
   return Math.round((counted.filter((m) => m === "present" || m === "late").length / counted.length) * 100);
 }
+
+/**
+ * studentAttendance/{uid} — a student's own copy of their marks, written alongside each register
+ * (registers hold the whole batch, so students can't read those).
+ */
+export type MyAttendanceEntry = { sessionId: string; batchId: string; date: string; start: string; end: string; mark: Mark };
+
+export function normalizeMyAttendance(raw: Record<string, unknown> | undefined): MyAttendanceEntry[] {
+  const records = (raw?.records ?? {}) as Record<string, Record<string, unknown>>;
+  const str = (v: unknown) => (typeof v === "string" ? v : "");
+  return Object.entries(records)
+    .filter(([, r]) => r && marks.includes(r.mark as Mark))
+    .map(([sessionId, r]) => ({ sessionId, batchId: str(r.batchId), date: str(r.date), start: str(r.start), end: str(r.end), mark: r.mark as Mark }))
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/** Present/late/absent/excused counts. */
+export function markCounts(list: Mark[]) {
+  return Object.fromEntries(marks.map((m) => [m, list.filter((x) => x === m).length])) as Record<Mark, number>;
+}
