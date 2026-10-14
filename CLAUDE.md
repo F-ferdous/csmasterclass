@@ -15,7 +15,8 @@ must **never appear on the Home page**.
   This is NOT the Next.js in training data — read `node_modules/next/dist/docs/` before using an API.
 - React 19, TypeScript, **Tailwind CSS v4** (tokens in `app/globals.css` `@theme inline`).
 - **Motion** (`motion/react`) for animation, **Lenis** smooth scroll, `lucide-react` icons.
-- **Firebase** (client SDK v13): Auth (email/password + Google), Firestore, Analytics.
+- **Firebase** (client SDK v13): Auth (**admins only**), Firestore, Storage, Analytics. Students have **no Firebase Auth** —
+  see "Student accounts" below.
   **Storage** enabled 2026-10-14 (bucket `cs-masterclass.firebasestorage.app`, rules deployed from `storage.rules`).
 - Font: **Roboto only** (user's choice). Light/dark theme toggle (`data-theme` on `<html>`, saved in localStorage).
 
@@ -56,18 +57,21 @@ must **never appear on the Home page**.
 ## Admin access
 
 - Owner admin account: **admin@cs-masterclass.com** (always admin by email — `lib/admins.ts` + `isAdmin()` in rules).
-- Anyone else becomes admin by setting `users/{uid}.role = "admin"` (or the toggle in Admin → Students).
+- Anyone else becomes admin by creating them in Firebase Auth and setting `users/{uid}.role = "admin"` (console). `users` holds admins only.
 - After sign-in: admins → `/admin`, students → `/dashboard` (unless `?next=`).
 
 ## Firestore data model (see `firestore.rules`)
 
 | Collection | Purpose | Access |
 |---|---|---|
-| `users/{uid}` | profile: name, email, phone, **phoneKey** (8801…, used to sign in), **authEmail**, **parentPhone**, classLevel, locationId, batchId (= confirmed batch), role, **booksOwned** (book slugs ticked by admin) | own read; students may update only name/parentPhone/photoURL; created by server on confirm (or admin) |
+| `users/{uid}` | **admin** profiles only (Firebase Auth uid) | own read; admin write |
+| `students/{id}` | id = registration id. name, email, phone, **phoneKey** (8801…, sign-in), parentPhone, classLevel, locationId, batchId (= confirmed batch), photoURL, **booksOwned**, status (active/disabled), **sessionVersion** | admin read/write; students go through the server |
+| `students/{id}/private/auth` | scrypt `passwordHash` + `salt` | **server only** (no browser, not even admins) |
+| `loginAttempts/{sha256(studentId or identifier)}` | failed sign-in count / lock until | server only |
 | `locations` | coaching centres | public read, admin write |
 | `batches` | classLevel, locationId, name, board, `sessions[{day,start,end}]` (per-day times), seats, **fee** (BDT/month), status, notes | public read, admin write |
 | `enrollments` | registrations (`uid: ""`, source signup, phoneKey, parentPhone — server-written) and batch-change requests (source profile): pending → confirmed/waitlisted/rejected/cancelled | students create own `profile` requests only; admin decides (registrations via server) |
-| `enrollmentSecrets/{id}` | scrypt hash of the password chosen at registration, until first sign-in | server only |
+| `enrollmentSecrets/{id}` | scrypt hash of the password chosen at registration, until an admin confirms (then moved to `students/{id}/private/auth`) | server only |
 | `attendance/{batchId}_{YYYY-MM-DD}` | register: `records{uid: present/late/absent/excused}`, note | admin only |
 | `studentAttendance/{uid}` | student's own copy: `records{sessionId: {batchId,date,start,end,mark}}`, written with each register save | own read; admin write |
 | `tests/{id}` | title, type (class-test/mock/quiz), paper, date, maxMarks, batchIds, `marks{uid: number\|"absent"}`, published | admin only |
@@ -102,24 +106,29 @@ or 1200 combined, Mock Exam 449/1399, **AS Computer Science Handbook (9618)** �
 - **Per-class book lists** (`suggestBooks()` in `lib/books.ts`, editable per book in Admin → Books → "Suggested on student dashboards"):
   Class 9 must = Handbook + Topical QB, optional = Topical Notes; Class 10 must = Handbook + Topical QB + Past Paper + Mock,
   optional = Topical Notes; Class 11 must = AS Handbook; Class 12 none (sees the whole library).
-- Admin → Students → student → **Books bought** ticks (`users.booksOwned`) hide those books from the student's suggestions.
+- Admin → Students → student → **Books bought** ticks (`students.booksOwned`) hide those books from the student's suggestions.
 - **Bundle popup** (`components/sections/bundle-popup.tsx`, in `app/(site)/layout.tsx`): 400×300, opens 2.5 s into a visit on
   public pages, once per browser session (sessionStorage `bundle-popup-seen`).
 
-**Auth (students get a login only when an admin confirms them — no Google sign-in):**
-- `/signup` = "Register for a batch": class → centre → batch + name, mobile (required), email (optional), parent phone,
-  password → server action `registerStudent` writes `enrollments/{id}` (status pending, `uid: ""`) + `enrollmentSecrets/{id}`
-  (scrypt hash, no client access). Nothing in Firebase Auth yet.
-- Admin → Enrollments → Confirm → `decideRegistration` (server, checks admin ID token) creates the Auth user (uid = enrollment
-  id, random password; phone-only students get `8801…@phone.cs-masterclass.invalid` as Auth email) + `users/{uid}`.
-  Waitlist and Decline keep the hash (a declined student signing in sees "wasn't accepted" + the admin's note);
-  it's deleted on confirm→first sign-in, admin password reset, or when that phone registers again.
-- Sign-in takes email **or** mobile (`signIn` in `lib/auth.ts`). Phone → server `lookupLogin` finds the account and checks the
-  password via Identity Toolkit REST. First sign-in after confirmation: `lookupLogin` verifies against the hash, sets it as the
-  real Firebase password, deletes the hash. Pending/waitlisted registrations get a clear message.
-- Forgot password: email reset link; phone-only students → Admin → Students → "Set a new password" (`setStudentPassword`).
-- Server code: `app/student-actions.ts` ("use server", every function re-checks its caller), `lib/server/*` (firebase-admin,
-  scrypt). Credentials: `service-account.json` in project root (git-ignored) or `FIREBASE_SERVICE_ACCOUNT_KEY`, else host ADC.
+**Student accounts (since 2026-10-14 — students get a login only when an admin confirms them; no Firebase Auth):**
+- `/signup` → `registerStudent` (`app/student-actions.ts`) writes `enrollments/{id}` (pending, `uid: ""`) + `enrollmentSecrets/{id}`.
+- Admin → Enrollments → Confirm → `decideRegistration` (checks admin ID token) creates `students/{id}` + `students/{id}/private/auth`
+  (hash moved from enrollmentSecrets) and sets the enrollment's uid. Waitlist/Decline keep the hash (declined student sees the note).
+- Sign-in (`signIn` in `lib/auth.ts`): `signInStudent` checks phone/email + scrypt and sets a **signed HttpOnly cookie** `cs_session`
+  (HMAC with `SESSION_SECRET`, 30 days, `lib/server/session.ts`) + readable flag `cs_student=1`. Emails that aren't a student →
+  `try-admin` → Firebase Auth (admins). 5 wrong passwords lock the account 10 min (`loginAttempts`).
+- `sessionVersion` on the student: password change (`changeMyPassword`, Profile) and admin reset (`setStudentPassword`) bump it →
+  every older cookie stops working. Forgot password = ask the teacher (admins still get an email link).
+- Current student: `currentStudent()` / `requireStudent()` in `lib/server/students.ts`. Browser: `StudentSessionProvider` /
+  `useStudentSession()` (`components/auth/student-session.tsx`, in the root layout); admins: `useAuth()`.
+- **All student data goes through the server**: `app/student-data.ts` (reads + saves, each starts with `requireStudent()`), cached in
+  the browser by `useStudentData()` (`components/dashboard/use-student-data.ts`, refetch on focus + every 60 s; `setStudentData` /
+  `refreshStudentData` after saves; cleared on sign-out). Files: `/api/student/files/{resource|homework}/{id}` (audience-checked,
+  `no-store`). Homework uploads go via a Server Function (bodySizeLimit 26mb in next.config).
+- Rules: every student collection is admin-only from the browser; Storage `resources/` and `homework/` are admin-read only.
+- Server credentials: `service-account.json` (project root, git-ignored) or `FIREBASE_SERVICE_ACCOUNT_KEY`, else host ADC.
+  `SESSION_SECRET` in `.env.local` (git-ignored). Dev logs don't print Server Function args (`logging.serverFunctions: false`).
+- Migration 2026-10-14: the one existing student (Fahim Ferdous) moved from `users` + Firebase Auth to `students` (password kept).
 
 **Student dashboard (`/dashboard`):** Overview (next-class countdown, batch + seat status, centre,
 week timetable, latest announcements, books, attendance % + latest result), Schedule, Announcements, Attendance (rate, counts,
@@ -161,8 +170,7 @@ iPhone: notifications only work after "Add to Home Screen" (iOS 16.4+).
 - Idea: recording a book payment in Admin → Payments could auto-tick that book in the student's "Books bought" (not built).
 - Uploading files to Storage from the CLI: the firebase CLI login works (script used on 2026-10-14 got a token via
   firebase-tools' `lib/auth.js` `getAccessToken` and POSTed to the GCS JSON API). Admin → Books cover upload works in the browser.
-- **Needs `service-account.json`** (Firebase console → Project settings → Service accounts → Generate new private key, saved in
-  the project root) before registration / confirming / phone sign-in work locally. Restart the dev server after adding it.
+- `service-account.json` is in place (added 2026-10-14) — the server needs it for registration, sign-in and all student data.
 - Before deploying to App Hosting: its service account needs Firebase Auth admin + Firestore access (check roles).
 - Batch change requests keep the student in their confirmed batch until an admin confirms (`requestSeat` only cancels
   pending/waitlisted; `decideEnrollment` confirm closes the old confirmed seat). Old "Sync existing students" button removed.
@@ -172,7 +180,8 @@ iPhone: notifications only work after "Add to Home Screen" (iOS 16.4+).
   firebase-admin, and `next dev --port 3100`. Tested 2026-10-13: register → pending msg → confirm/waitlist/decline → phone & email sign-in →
   materials per batch → batch change → password reset → tampering blocked (all passed).
 - Flow/rules tests: run against emulators (Auth + Firestore + Storage) with firebase-admin pointed at them. Emulator needs Java 21 for current firebase-tools (Mac has 17) → use `npx firebase-tools@13.35.1`; port 8080 is taken by Docker.
-- **Deploying**: add `NEXT_PUBLIC_VAPID_PUBLIC_KEY` to apphosting.yaml and `VAPID_PRIVATE_KEY` as an App Hosting secret; push
+- **Deploying**: add `SESSION_SECRET` as an App Hosting secret (or every deploy signs students out / sign-in fails), and give the
+  App Hosting service account Firestore + Storage access. Add `NEXT_PUBLIC_VAPID_PUBLIC_KEY` to apphosting.yaml and `VAPID_PRIVATE_KEY` as an App Hosting secret; push
   needs HTTPS (works on the live site, not on plain http://localhost from a phone).
 - Push delivery to a real phone is untested (the test browser blocks notification permission) — test on a phone after deploy.
 - Placeholder content to replace: testimonials, results, milestones, recognitions (`lib/content.ts`), owner name/email/socials (`lib/site.ts`).

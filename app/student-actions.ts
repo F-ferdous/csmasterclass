@@ -157,14 +157,15 @@ export async function signInStudent(identifier: string, password: string): Promi
   const isEmail = id.includes("@");
   const key = isEmail ? "" : phoneKey(id);
   if (!pw || (!isEmail && !key) || (isEmail && !validEmail(id))) return { status: "invalid" };
-  const lockId = isEmail ? id : key;
   const wrong = (): SignInResult => (isEmail ? { status: "try-admin" } : { status: "invalid" });
 
   try {
-    if (await isLocked(lockId)) return { status: "locked" };
     const db = adminDb();
-
     const students = await db.collection("students").where(isEmail ? "email" : "phoneKey", "==", isEmail ? id : key).limit(5).get();
+    // The lock belongs to the account, so switching between its phone and email doesn't give more tries.
+    const lockId = students.docs[0]?.id ?? (isEmail ? id : key);
+    if (await isLocked(lockId)) return { status: "locked" };
+
     for (const s of students.docs) {
       const secret = await passwordDoc(s.id).get();
       if (!secret.exists || !(await verifyPassword(pw, secret.data() as StoredPassword))) continue;
@@ -335,9 +336,7 @@ export async function setStudentPassword(idToken: string, uid: string, password:
   if (!validPassword(String(password ?? ""))) return { ok: false, error: "Use at least 6 characters." };
   try {
     await setPassword(String(uid), String(password));
-    // A reset also lifts any sign-in lock.
-    const student = await studentDoc(String(uid)).get();
-    await Promise.all([student.get("phoneKey"), student.get("email")].filter(Boolean).map((k) => attemptDoc(k).delete())).catch(() => {});
+    await attemptDoc(String(uid)).delete().catch(() => {}); // a reset also lifts any sign-in lock
     return { ok: true };
   } catch (err) {
     if ((err as Error).message === "no-student") return { ok: false, error: "This student account doesn't exist." };
