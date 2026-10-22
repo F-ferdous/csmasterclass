@@ -11,7 +11,7 @@ import { bookLevelLabels, bookLevels, bookNeedLabels } from "@/lib/books";
 import { classLevels } from "@/lib/coaching";
 import type { Book, BookLevel, BookNeed, BookStatus, CoverMotif, Price, PriceKind } from "@/lib/types";
 import { cn, slugify } from "@/lib/utils";
-import { refreshBooks } from "@/app/actions";
+import { refreshBooks } from "@/components/admin/refresh";
 import { BookCover } from "@/components/books/book-cover";
 import { ease } from "@/components/motion/reveal";
 import { Segmented } from "./ui";

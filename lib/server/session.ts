@@ -6,7 +6,8 @@ import { cookies } from "next/headers";
 // signed with HMAC-SHA256 using SESSION_SECRET. Bumping students/{id}.sessionVersion (password reset,
 // password change) makes every older cookie invalid.
 
-export const SESSION_COOKIE = "cs_session";
+// Named "__session" because Firebase Hosting (if used in front of the server) forwards only that cookie.
+export const SESSION_COOKIE = "__session";
 /** Readable flag so the browser knows there may be a session worth asking about. Holds no secret. */
 export const FLAG_COOKIE = "cs_student";
 const MAX_AGE = 60 * 60 * 24 * 30; // 30 days

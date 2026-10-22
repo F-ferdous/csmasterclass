@@ -44,3 +44,5 @@ next-env.d.ts
 # Firebase server key (never commit)
 service-account*.json
 firestore-debug.log
+
+firebase-debug.log

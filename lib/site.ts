@@ -16,6 +16,7 @@ export const site = {
    * e.g. "8801712345678". While empty, "Order" buttons go to the contact page.
    */
   whatsapp: "",
+  /** The live address (sitemap, share previews). Set to the real domain before launch. */
   url: "https://example.com",
   socials: [
     { label: "YouTube", href: "https://youtube.com" },

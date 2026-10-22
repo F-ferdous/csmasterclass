@@ -10,7 +10,7 @@ import { formatBdt, lowestPrice } from "@/lib/pricing";
 import { seedBooks } from "@/lib/seed-books";
 import type { Book } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { refreshBooks } from "@/app/actions";
+import { refreshBooks } from "@/components/admin/refresh";
 import { BookCover } from "@/components/books/book-cover";
 import { BookEditor } from "./book-editor";
 import { EmptyState, GhostButton, PageHeader, PrimaryButton, Spinner } from "./ui";

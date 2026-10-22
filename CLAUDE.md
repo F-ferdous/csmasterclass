@@ -30,7 +30,15 @@ must **never appear on the Home page**.
 - Firestore rules: edit `firestore.rules`, validate with
   `npx firebase-tools deploy --only firestore:rules --project cs-masterclass --dry-run`, then deploy without `--dry-run`.
   CLI is logged in as the owner. `.firebaserc` default project = `cs-masterclass`.
-- Config: `.env.local` (git-ignored) holds the Firebase web config; `apphosting.yaml` has the same for Firebase App Hosting.
+- Config: `.env.local` (git-ignored) holds the Firebase web config, `SESSION_SECRET` and the VAPID keys.
+- **Hosting: none — the site is not deployed.** On 2026-10-22 App Hosting and then Firebase Hosting (web frameworks) were tried
+  and fully removed (backend, secrets, source bucket, image repo deleted; the `cs-masterclass.web.app` site is disabled).
+  Plan: buy a domain, then deploy fresh — recommended **Firebase App Hosting + custom domain** (Google's Next.js host; supports
+  Next 16.4). Lessons for that deploy: the server needs `SESSION_SECRET` + `VAPID_PRIVATE_KEY` (Secret Manager) and
+  `NEXT_PUBLIC_*` values (apphosting.yaml); keep `.env*` and `service-account*.json` out of uploads; put the server in
+  `us-central1` (Firestore is `nam5`); set `site.url` (now `https://example.com`) to the domain. Firebase Hosting's
+  web-frameworks mode only supports Next ≤ 16.0 and forwards only the `__session` cookie (the session cookie already uses that name).
+  Cloud Functions API was enabled on the project during the attempt (harmless).
 - Git: `site-build` was merged (fast-forward) into **`main`** on 2026-10-13; both point to the same commit.
   No remote is configured. Commit only when the user asks.
 
@@ -51,8 +59,12 @@ must **never appear on the Home page**.
 - Charts: plain SVG in `components/admin/charts.tsx`, following the dataviz skill. Series colours are
   validated tokens `--series-1..4` (green, ember, blue, gold; separate dark values). Re-run the palette
   validator before changing them. Every chart has a table view + tooltip.
-- After writes that affect public cached pages call server actions in `app/actions.ts`
-  (`refreshBooks()` → tag `books`, `refreshCoaching()` → tag `coaching`).
+- After writes that affect public cached pages call `refreshBooks()` / `refreshCoaching()` from `components/admin/refresh.ts`
+  (they pass the admin's ID token to the admin-checked server actions in `app/actions.ts` → tags `books` / `coaching`).
+- Student data hooks (`useStudentData`) only fetch once `useStudentSession()` has a student — never call student Server
+  Functions for signed-out visitors. Modules the server imports (`app/student-data.ts`) must not be marked `"use client"`.
+- SEO files: `app/robots.ts`, `app/sitemap.ts` (books from `getBooks()`; /about only once `ownerName` is set),
+  `app/opengraph-image.tsx` (default share preview). All absolute URLs come from `site.url`.
 
 ## Admin access
 
@@ -114,7 +126,7 @@ or 1200 combined, Mock Exam 449/1399, **AS Computer Science Handbook (9618)** �
 - `/signup` → `registerStudent` (`app/student-actions.ts`) writes `enrollments/{id}` (pending, `uid: ""`) + `enrollmentSecrets/{id}`.
 - Admin → Enrollments → Confirm → `decideRegistration` (checks admin ID token) creates `students/{id}` + `students/{id}/private/auth`
   (hash moved from enrollmentSecrets) and sets the enrollment's uid. Waitlist/Decline keep the hash (declined student sees the note).
-- Sign-in (`signIn` in `lib/auth.ts`): `signInStudent` checks phone/email + scrypt and sets a **signed HttpOnly cookie** `cs_session`
+- Sign-in (`signIn` in `lib/auth.ts`): `signInStudent` checks phone/email + scrypt and sets a **signed HttpOnly cookie** `__session`
   (HMAC with `SESSION_SECRET`, 30 days, `lib/server/session.ts`) + readable flag `cs_student=1`. Emails that aren't a student →
   `try-admin` → Firebase Auth (admins). 5 wrong passwords lock the account 10 min (`loginAttempts`).
 - `sessionVersion` on the student: password change (`changeMyPassword`, Profile) and admin reset (`setStudentPassword`) bump it →
@@ -159,6 +171,14 @@ iPhone: notifications only work after "Add to Home Screen" (iOS 16.4+).
 
 ## Next up / open items
 
+**Pre-launch check 2026-10-22** (tsc, eslint, build, every page, register → confirm → sign-in → dashboards on emulators).
+Fixed: dashboard called student Server Functions while signed out (500s); enrollment/seat status never loaded
+(`lib/enrollments.ts` was `"use client"`); `/\host` open redirect in `safeNext`; SVG/odd file types now download instead of
+opening inline; cache-refresh actions were callable by anyone; bundle popup no longer covers `/order`; added robots, sitemap,
+share image. Next.js upgraded 16.4.0 → **16.4.2** (critical image-optimizer RCE + Server Actions DoS advisories).
+**Not deployed yet** (waiting for a domain — see Run / build / deploy). Still to replace (needs the owner): owner name (About page says "Your Name"), contact email (hello@example.com), social links (point at youtube.com etc.),
+`site.whatsapp`, placeholder testimonials/results in `lib/content.ts`. 
+
 - **Settings** section in admin (WhatsApp number, payment instructions, prices). Orders is built (2026-10-14).
 - Public **order form** `/order` (`components/books/order-form.tsx`): every "Order now"/"Get the bundle" button links to it via
   `orderLink()` in `lib/pricing.ts` (`?book=slug&kind=hard` or `?bundle=soft`). Payment details aren't shown to customers yet
@@ -171,7 +191,6 @@ iPhone: notifications only work after "Add to Home Screen" (iOS 16.4+).
 - Uploading files to Storage from the CLI: the firebase CLI login works (script used on 2026-10-14 got a token via
   firebase-tools' `lib/auth.js` `getAccessToken` and POSTed to the GCS JSON API). Admin → Books cover upload works in the browser.
 - `service-account.json` is in place (added 2026-10-14) — the server needs it for registration, sign-in and all student data.
-- Before deploying to App Hosting: its service account needs Firebase Auth admin + Firestore access (check roles).
 - Batch change requests keep the student in their confirmed batch until an admin confirms (`requestSeat` only cancels
   pending/waitlisted; `decideEnrollment` confirm closes the old confirmed seat). Old "Sync existing students" button removed.
 - Manual end-to-end testing without touching live data: copy the project (`cp -Rc`), give the copy a `.env.local` with
@@ -180,9 +199,7 @@ iPhone: notifications only work after "Add to Home Screen" (iOS 16.4+).
   firebase-admin, and `next dev --port 3100`. Tested 2026-10-13: register → pending msg → confirm/waitlist/decline → phone & email sign-in →
   materials per batch → batch change → password reset → tampering blocked (all passed).
 - Flow/rules tests: run against emulators (Auth + Firestore + Storage) with firebase-admin pointed at them. Emulator needs Java 21 for current firebase-tools (Mac has 17) → use `npx firebase-tools@13.35.1`; port 8080 is taken by Docker.
-- **Deploying**: add `SESSION_SECRET` as an App Hosting secret (or every deploy signs students out / sign-in fails), and give the
-  App Hosting service account Firestore + Storage access. Add `NEXT_PUBLIC_VAPID_PUBLIC_KEY` to apphosting.yaml and `VAPID_PRIVATE_KEY` as an App Hosting secret; push
-  needs HTTPS (works on the live site, not on plain http://localhost from a phone).
+- Push needs HTTPS (works on the live site, not on plain http://localhost from a phone).
 - Push delivery to a real phone is untested (the test browser blocks notification permission) — test on a phone after deploy.
 - Placeholder content to replace: testimonials, results, milestones, recognitions (`lib/content.ts`), owner name/email/socials (`lib/site.ts`).
 - Printable payment receipts (suggested, not built).

@@ -31,10 +31,13 @@ export async function GET(_req: Request, ctx: { params: Promise<{ kind: string; 
   try {
     const [data] = await adminBucket().file(file.path).download();
     const name = (file.name || "file").replace(/["\\\r\n]/g, "");
+    const type = file.contentType || "application/octet-stream";
+    // Open PDFs, photos and text in the browser; anything else (e.g. SVG, which can run scripts) downloads.
+    const inline = /^(application\/pdf|image\/(png|jpe?g|gif|webp|avif)|text\/plain)$/.test(type);
     return new Response(new Uint8Array(data), {
       headers: {
-        "Content-Type": file.contentType || "application/octet-stream",
-        "Content-Disposition": `inline; filename="${name}"; filename*=UTF-8''${encodeURIComponent(name)}`,
+        "Content-Type": type,
+        "Content-Disposition": `${inline ? "inline" : "attachment"}; filename="${name}"; filename*=UTF-8''${encodeURIComponent(name)}`,
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
       },

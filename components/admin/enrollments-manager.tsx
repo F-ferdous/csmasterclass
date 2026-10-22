@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Check, ClipboardCheck, ListOrdered, Loader2, Search, UserPlus, X } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { EnrollmentPicker } from "@/components/auth/enrollment-picker";
-import { refreshCoaching } from "@/app/actions";
+import { refreshCoaching } from "@/components/admin/refresh";
 import { decideRegistration } from "@/app/student-actions";
 import type { Enrollment } from "@/lib/auth";
 import { classLevels, groupSessions, normalizeBatch, normalizeLocation, sortBatches } from "@/lib/coaching";

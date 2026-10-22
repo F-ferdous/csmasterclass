@@ -7,7 +7,7 @@ import { getStorage } from "firebase-admin/storage";
 
 // Server-side Firebase (full admin access — never import this from client code).
 // Credentials, in order: service-account.json in the project folder (local dev, git-ignored),
-// FIREBASE_SERVICE_ACCOUNT_KEY (the JSON as one line), or the host's own (Firebase App Hosting).
+// FIREBASE_SERVICE_ACCOUNT_KEY (the JSON as one line), or the hosting platform's own credentials.
 const keyFile = join(process.cwd(), "service-account.json");
 
 function adminApp(): App {

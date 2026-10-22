@@ -74,9 +74,9 @@ export async function signOut() {
   clearStudentCache();
 }
 
-/** Only allow same-site relative redirects after sign-in. */
+/** Only allow same-site relative redirects after sign-in ("/\evil.com" counts as another site in browsers). */
 export function safeNext(next: string | null | undefined, fallback = "/dashboard") {
-  return next && next.startsWith("/") && !next.startsWith("//") ? next : fallback;
+  return next && next.startsWith("/") && !next.startsWith("//") && !next.includes("\\") ? next : fallback;
 }
 
 /** Friendly messages for the Firebase Auth errors people actually hit. */

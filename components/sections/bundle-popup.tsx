@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowUpRight, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -18,11 +19,14 @@ const DELAY_MS = 2500;
 /** A 400×300 bundle promotion that opens 2.5 s into a visit — once per browser session. */
 export function BundlePopup({ books, tiers }: { books: Book[]; tiers: Tier[] }) {
   const [open, setOpen] = useState(false);
+  // Not over the order form — people there are already choosing books.
+  const ordering = usePathname().startsWith("/order");
   const closeRef = useRef<HTMLButtonElement>(null);
   const soft = tiers.find((t) => t.kind === "soft");
   const hard = tiers.find((t) => t.kind === "hard");
 
   useEffect(() => {
+    if (ordering) return;
     try {
       if (sessionStorage.getItem(SEEN_KEY)) return;
     } catch {
@@ -35,7 +39,7 @@ export function BundlePopup({ books, tiers }: { books: Book[]; tiers: Tier[] }) 
       } catch {}
     }, DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [ordering]);
 
   useEffect(() => {
     if (!open) return;

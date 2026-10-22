@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useReducer } from "react";
+import { useStudentSession } from "@/components/auth/student-session";
 
 // Student data comes from Server Functions (app/student-data.ts), not live Firestore listeners.
 // This small cache shares each result between components, refetches when the tab becomes visible
@@ -56,8 +57,12 @@ export function clearStudentCache() {
  * `null` while loading. `key` names the data (one fetcher per key); pass `null` to wait.
  * Fetchers are Server Functions, which are stable references.
  */
-export function useStudentData<T>(key: string | null, fetcher: () => Promise<T>, refreshMs = 60_000): T | null {
+export function useStudentData<T>(requested: string | null, fetcher: () => Promise<T>, refreshMs = 60_000): T | null {
   const [, rerender] = useReducer((n: number) => n + 1, 0);
+  // Ask the server only once a student is known to be signed in (signed-out visitors are being
+  // sent to the sign-in page, and every student Server Function would refuse them anyway).
+  const { student } = useStudentSession();
+  const key = student ? requested : null;
 
   useEffect(() => {
     if (!key) return;

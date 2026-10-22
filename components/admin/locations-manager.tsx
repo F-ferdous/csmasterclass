@@ -8,7 +8,7 @@ import { db } from "@/lib/firebase";
 import { defaultLocations, normalizeBatch, normalizeLocation } from "@/lib/coaching";
 import type { Batch, Location } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { refreshCoaching } from "@/app/actions";
+import { refreshCoaching } from "@/components/admin/refresh";
 import { adminInput, Drawer, DrawerBody, DrawerFooter, drawerFormClass, EmptyState, ErrorText, Field, GhostButton, PageHeader, PrimaryButton, Spinner } from "./ui";
 
 const blank: Location = { id: "", name: "", area: "", address: "", mapUrl: "", phone: "", active: true, order: 1 };

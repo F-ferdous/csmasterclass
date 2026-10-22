@@ -20,7 +20,7 @@ import {
 } from "@/lib/coaching";
 import type { Batch, BatchStatus, Board, ClassLevel, Location, Session, Weekday } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { refreshCoaching } from "@/app/actions";
+import { refreshCoaching } from "@/components/admin/refresh";
 import { adminInput, Drawer, DrawerBody, DrawerFooter, drawerFormClass, EmptyState, ErrorText, Field, GhostButton, PageHeader, PrimaryButton, Segmented, Spinner } from "./ui";
 
 const statusStyles: Record<BatchStatus, string> = {
