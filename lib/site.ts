@@ -16,8 +16,8 @@ export const site = {
    * e.g. "8801712345678". While empty, "Order" buttons go to the contact page.
    */
   whatsapp: "",
-  /** The live address (sitemap, share previews). Set to the real domain before launch. */
-  url: "https://example.com",
+  /** The live address (sitemap, share previews). Change to the custom domain once one is connected. */
+  url: "https://csmasterclass--cs-masterclass.us-east4.hosted.app",
   socials: [
     { label: "YouTube", href: "https://youtube.com" },
     { label: "LinkedIn", href: "https://linkedin.com" },

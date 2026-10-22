@@ -31,14 +31,15 @@ must **never appear on the Home page**.
   `npx firebase-tools deploy --only firestore:rules --project cs-masterclass --dry-run`, then deploy without `--dry-run`.
   CLI is logged in as the owner. `.firebaserc` default project = `cs-masterclass`.
 - Config: `.env.local` (git-ignored) holds the Firebase web config, `SESSION_SECRET` and the VAPID keys.
-- **Hosting: none — the site is not deployed.** On 2026-10-22 App Hosting and then Firebase Hosting (web frameworks) were tried
-  and fully removed (backend, secrets, source bucket, image repo deleted; the `cs-masterclass.web.app` site is disabled).
-  Plan: buy a domain, then deploy fresh — recommended **Firebase App Hosting + custom domain** (Google's Next.js host; supports
-  Next 16.4). Lessons for that deploy: the server needs `SESSION_SECRET` + `VAPID_PRIVATE_KEY` (Secret Manager) and
-  `NEXT_PUBLIC_*` values (apphosting.yaml); keep `.env*` and `service-account*.json` out of uploads; put the server in
-  `us-central1` (Firestore is `nam5`); set `site.url` (now `https://example.com`) to the domain. Firebase Hosting's
-  web-frameworks mode only supports Next ≤ 16.0 and forwards only the `__session` cookie (the session cookie already uses that name).
-  Cloud Functions API was enabled on the project during the attempt (harmless).
+- **Hosting: Firebase App Hosting**, backend **`csmasterclass`** in **`us-east4`**, created 2026-10-23 in the console and connected
+  to GitHub `F-ferdous/csmasterclass`, branch `main`, root `/`. **Every push to `main` deploys automatically.**
+  Live: **https://csmasterclass--cs-masterclass.us-east4.hosted.app** (= `site.url`; switch to the custom domain once bought).
+  `apphosting.yaml` holds the public `NEXT_PUBLIC_*` values (BUILD + RUNTIME) and references the Secret Manager secrets
+  `SESSION_SECRET` (random, never change — signs every student out) and `VAPID_PRIVATE_KEY` (same as `.env.local`); the backend
+  was granted access with `apphosting:secrets:grantaccess --backend csmasterclass --location us-east4`. Leave the console's
+  env/secrets section empty — everything lives in `apphosting.yaml`. Server credentials = the App Hosting compute service account
+  (`firebase.sdkAdminServiceAgent`). Earlier attempts (2026-10-22: CLI-created App Hosting backend, Firebase Hosting web frameworks)
+  were removed; `cs-masterclass.web.app` is disabled. Firebase Hosting's web-frameworks mode only supports Next ≤ 16.0.
 - Git: work on **`main`** (`site-build` is an old branch at the same commit as of 2026-10-23). Remote `origin` =
   https://github.com/F-ferdous/csmasterclass (**public** repo); `main` tracks `origin/main`. Commit and push only when the
   user asks. Never commit `.env*` (except `.env.example`) or `service-account*.json` — both are git-ignored.
@@ -177,7 +178,7 @@ Fixed: dashboard called student Server Functions while signed out (500s); enroll
 (`lib/enrollments.ts` was `"use client"`); `/\host` open redirect in `safeNext`; SVG/odd file types now download instead of
 opening inline; cache-refresh actions were callable by anyone; bundle popup no longer covers `/order`; added robots, sitemap,
 share image. Next.js upgraded 16.4.0 → **16.4.2** (critical image-optimizer RCE + Server Actions DoS advisories).
-**Not deployed yet** (waiting for a domain — see Run / build / deploy). Still to replace (needs the owner): owner name (About page says "Your Name"), contact email (hello@example.com), social links (point at youtube.com etc.),
+**Live on App Hosting since 2026-10-23** (see Run / build / deploy). Still to replace (needs the owner): owner name (About page says "Your Name"), contact email (hello@example.com), social links (point at youtube.com etc.),
 `site.whatsapp`, placeholder testimonials/results in `lib/content.ts`. 
 
 - **Settings** section in admin (WhatsApp number, payment instructions, prices). Orders is built (2026-10-14).

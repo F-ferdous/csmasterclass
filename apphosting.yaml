@@ -1,0 +1,43 @@
+# Firebase App Hosting — https://firebase.google.com/docs/app-hosting/configure
+# Backend: csmasterclass (us-east4), builds from GitHub F-ferdous/csmasterclass, branch main.
+runConfig:
+  minInstances: 0
+  maxInstances: 4
+
+env:
+  # Firebase web config and the push key's public half — public by design (they ship to the browser).
+  # Needed at build time too (Next.js inlines NEXT_PUBLIC_* values).
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: "AIzaSyDWWJxPJu_1rF5HJ90P6Mqg0cR39ozME98"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: "cs-masterclass.firebaseapp.com"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: "cs-masterclass"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: "cs-masterclass.firebasestorage.app"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "747385939171"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: "1:747385939171:web:5f1b420052f77aebb611d6"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+    value: "G-JDPECJVNEK"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_VAPID_PUBLIC_KEY
+    value: "BLuUgmI5wt0w6_heSX2uSpIEVNoPEtwgIDaDH2rGMmjhuOvZXzEPYv-fDsz61vz1gbFTjYYDHwfs-jatppXq9Vk"
+    availability: [BUILD, RUNTIME]
+
+  # Secrets live in Cloud Secret Manager (never in this file). Change one with:
+  #   npx firebase-tools apphosting:secrets:set <NAME> --project cs-masterclass
+  # SESSION_SECRET signs student logins — changing it signs every student out.
+  - variable: SESSION_SECRET
+    secret: SESSION_SECRET
+    availability: [RUNTIME]
+  - variable: VAPID_PRIVATE_KEY
+    secret: VAPID_PRIVATE_KEY
+    availability: [RUNTIME]
