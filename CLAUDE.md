@@ -39,8 +39,9 @@ must **never appear on the Home page**.
   `us-central1` (Firestore is `nam5`); set `site.url` (now `https://example.com`) to the domain. Firebase Hosting's
   web-frameworks mode only supports Next ≤ 16.0 and forwards only the `__session` cookie (the session cookie already uses that name).
   Cloud Functions API was enabled on the project during the attempt (harmless).
-- Git: `site-build` was merged (fast-forward) into **`main`** on 2026-10-13; both point to the same commit.
-  No remote is configured. Commit only when the user asks.
+- Git: work on **`main`** (`site-build` is an old branch at the same commit as of 2026-10-23). Remote `origin` =
+  https://github.com/F-ferdous/csmasterclass (**public** repo); `main` tracks `origin/main`. Commit and push only when the
+  user asks. Never commit `.env*` (except `.env.example`) or `service-account*.json` — both are git-ignored.
 
 ## Conventions (follow these)
 
@@ -204,4 +205,3 @@ share image. Next.js upgraded 16.4.0 → **16.4.2** (critical image-optimizer RC
 - Placeholder content to replace: testimonials, results, milestones, recognitions (`lib/content.ts`), owner name/email/socials (`lib/site.ts`).
 - Printable payment receipts (suggested, not built).
 - Automatic SMS receipts (needs a BD bulk-SMS account, e.g. BulkSMSBD/Alpha SMS, + server-side API key) — WhatsApp version is built (`receiptMessage` in `lib/payments.ts`).
-- Decide whether to add a GitHub remote (ask the user).
