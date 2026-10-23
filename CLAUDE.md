@@ -34,8 +34,8 @@ must **never appear on the Home page**.
 - **Hosting: Firebase App Hosting**, backend **`csmasterclass`** in **`us-east4`**, created 2026-10-23 in the console and connected
   to GitHub `F-ferdous/csmasterclass`, branch `main`, root `/`. **Every push to `main` deploys automatically.**
   **Custom domain `cs-masterclass.com`** live 2026-10-23 (= `site.url`). The old App Hosting address
-  csmasterclass--cs-masterclass.us-east4.hosted.app 308-redirects to it (`next.config.ts` redirects, host match guarded by
-  x-forwarded-host). `www.cs-masterclass.com` resolves but returned 404 — add it in App Hosting → Domains as a redirect to the apex.
+  csmasterclass--cs-masterclass.us-east4.hosted.app 308-redirects to it via `proxy.ts` (checks Host / X-Forwarded-Host /
+  Forwarded; a next.config `has: host` redirect did NOT fire on App Hosting). `www.cs-masterclass.com` resolves but returned 404 — add it in App Hosting → Domains as a redirect to the apex.
   `apphosting.yaml` holds the public `NEXT_PUBLIC_*` values (BUILD + RUNTIME) and references the Secret Manager secrets
   `SESSION_SECRET` (random, never change — signs every student out) and `VAPID_PRIVATE_KEY` (same as `.env.local`); the backend
   was granted access with `apphosting:secrets:grantaccess --backend csmasterclass --location us-east4`. Leave the console's

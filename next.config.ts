@@ -28,19 +28,8 @@ const nextConfig: NextConfig = {
     ];
   },
   async redirects() {
-    return [
-      // My account moved into the student dashboard.
-      { source: "/account", destination: "/dashboard/profile", permanent: true },
-      // The App Hosting address forwards to the custom domain (one address for Google, cookies and links).
-      // The x-forwarded-host check stops a loop if the proxy ever reports the old host for custom-domain requests.
-      {
-        source: "/:path*",
-        has: [{ type: "host", value: "csmasterclass--cs-masterclass.us-east4.hosted.app" }],
-        missing: [{ type: "header", key: "x-forwarded-host", value: "(www\\.)?cs-masterclass\\.com" }],
-        destination: "https://cs-masterclass.com/:path*",
-        permanent: true,
-      },
-    ];
+    // My account moved into the student dashboard. (The old App Hosting address → custom domain redirect is in proxy.ts.)
+    return [{ source: "/account", destination: "/dashboard/profile", permanent: true }];
   },
   turbopack: {
     rules: {
