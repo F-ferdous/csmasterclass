@@ -88,6 +88,7 @@ export async function registerStudent(input: RegistrationInput): Promise<ActionR
   if (!validEmail(email)) return { ok: false, error: "Enter your email address — you'll sign in with it." };
   if (isAdminEmail(email)) return { ok: false, error: "This email can't be used for a student account." };
   if (!phoneKey(parentPhone)) return { ok: false, error: "Enter your parent's or guardian's mobile number, e.g. 01712345678." };
+  if (phoneKey(parentPhone) === key) return { ok: false, error: "Your parent's or guardian's mobile number must be different from yours." };
   if (!classLevels.includes(input.classLevel)) return { ok: false, error: "Choose your class." };
 
   try {

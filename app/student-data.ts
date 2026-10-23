@@ -135,6 +135,7 @@ export async function updateMyProfile(input: { name: string; parentPhone: string
     const parentPhone = String(input.parentPhone ?? "").trim();
     if (name.length < 2 || name.length > 100) return { ok: false, error: "Enter your full name." };
     if (parentPhone && !phoneKey(parentPhone)) return { ok: false, error: "Enter your parent's mobile number, e.g. 01712345678." };
+    if (parentPhone && phoneKey(parentPhone) === phoneKey(me.phone)) return { ok: false, error: "Your parent's or guardian's mobile number must be different from yours." };
     await studentDoc(me.uid).update({ name, parentPhone, updatedAt: FieldValue.serverTimestamp() });
   });
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
-import { authErrorMessage, safeNext, signInAdmin } from "@/lib/auth";
+import { authErrorMessage, networkErrorDetails, safeNext, signInAdmin } from "@/lib/auth";
 import { useAuth } from "./auth-provider";
 import { ErrorNote, Field, inputClass, NotConfiguredNote, PasswordInput, SubmitButton } from "./auth-ui";
 
@@ -14,6 +14,7 @@ export function AdminLoginForm() {
   const { user, loading, configured } = useAuth();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [details, setDetails] = useState("");
 
   // Signed in (or just signed in) → the admin dashboard, which also explains if this account isn't an admin.
   useEffect(() => {
@@ -25,11 +26,13 @@ export function AdminLoginForm() {
     const data = new FormData(e.currentTarget);
     setBusy(true);
     setError("");
+    setDetails("");
     try {
       await signInAdmin(String(data.get("email")), String(data.get("password")));
     } catch (err) {
       setError(authErrorMessage(err));
       setBusy(false);
+      if ((err as { code?: string })?.code === "auth/network-request-failed") setDetails(await networkErrorDetails(err));
     }
   }
 
@@ -64,6 +67,7 @@ export function AdminLoginForm() {
               <PasswordInput name="password" required autoComplete="current-password" placeholder="Your password" />
             </Field>
             <ErrorNote message={error} />
+            {details && <p className="break-words text-xs text-ink-soft">{details}</p>}
             <SubmitButton loading={busy}>Sign in</SubmitButton>
           </form>
         )}

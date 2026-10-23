@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { registerStudent } from "@/app/student-actions";
 import type { Enrollment } from "@/lib/auth";
 import { classLevels } from "@/lib/coaching";
+import { phoneKey } from "@/lib/phone";
 import type { ClassLevel } from "@/lib/types";
 import { useAuth } from "./auth-provider";
 import { useStudentSession } from "./student-session";
@@ -67,12 +68,15 @@ export function SignupForm() {
     if (missing) return setError(missing);
     const data = new FormData(e.currentTarget);
 
-    setBusy(true);
-    setError("");
     const name = String(data.get("name") ?? "").trim();
     const email = String(data.get("email") ?? "").trim();
     const phone = String(data.get("phone") ?? "").trim();
-    const result = await registerStudent({ name, email, phone, parentPhone: String(data.get("parentPhone") ?? ""), ...enrollment }).catch(
+    const parentPhone = String(data.get("parentPhone") ?? "");
+    if (phoneKey(phone) && phoneKey(parentPhone) === phoneKey(phone)) return setError("Your parent's or guardian's mobile number must be different from yours.");
+
+    setBusy(true);
+    setError("");
+    const result = await registerStudent({ name, email, phone, parentPhone, ...enrollment }).catch(
       () => ({ ok: false as const, error: "Network error — check your connection and try again." }),
     );
     setBusy(false);

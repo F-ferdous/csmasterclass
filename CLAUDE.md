@@ -146,7 +146,8 @@ or 1200 combined, Mock Exam 449/1399, **AS Computer Science Handbook (9618)** �
 **Student accounts (no Firebase Auth; changed 2026-10-23 at the owner's request — username = email, password = mobile number):**
 - `/signup` → `registerStudent` (`app/student-actions.ts`) writes `enrollments/{id}` (pending, `uid: ""`). **Email is required** (it's the
   username; lowercased; must not belong to another student, an admin, or another open registration). Name, email, mobile number and
-  **parent's mobile number are all required** (form + server). No password fields anywhere.
+  **parent's mobile number are all required** (form + server). No password fields anywhere. The parent's number must differ from the
+  student's (compared by `phoneKey`; form, `registerStudent` and the student's own Profile edit — admins can still set anything; added 2026-10-24).
 - Admin → Enrollments → Confirm → `decideRegistration` (checks admin ID token) creates `students/{id}`. A registration without an email
   can't be confirmed — the row shows "No email — add it in Review", and Review has an Email field (`placement.email`).
 - Sign-in at **/login** (`signInStudentAccount` in `lib/auth.ts` → `signInStudent(email, phone)`): finds `students` by email and compares
@@ -250,6 +251,14 @@ Real testimonials/results matter for rankings too (placeholders in `lib/content.
 - Push needs HTTPS (works on the live site, not on plain http://localhost from a phone).
 - Push delivery to a real phone is untested (the test browser blocks notification permission) — test on a phone after deploy.
 - Placeholder content to replace: testimonials, results, milestones, recognitions (`lib/content.ts`), owner name/email/socials (`lib/site.ts`).
+- **Open (2026-10-23): admin sign-in on Chrome for iPhone shows "Network error"** (`auth/network-request-failed`) on the owner's
+  iPhone over Wi-Fi and mobile data; Safari on the same phone works, students (server sign-in) work in Chrome. Not reproducible in
+  WebKit iPhone emulation. Workaround: Safari / installed CS Admin app. **Changed (pushed 2026-10-24):** `auth()` in
+  `lib/firebase-client.ts` now uses `initializeAuth` without the popup/redirect resolver (on iOS the SDK otherwise loads a Google
+  iframe before every sign-in; nothing uses popup/redirect), `signInAdmin` retries once on a network error, and /admin-login shows a
+  "Details: …" line (browser's raw error, navigator.onLine, and a probe of identitytoolkit.googleapis.com). Next: owner tries Chrome
+  on iPhone after deploy and sends a screenshot of the Details line if it still fails.
+- Admin push alerts not yet confirmed on a real phone.
 - Printable payment receipts (suggested, not built).
 - Automatic SMS without a paid provider: plan = Android phone + SIM as SMS gateway (open-source gateway app), website calls it on
   payment/welcome. Discussed 2026-10-23, not built (SMS providers didn't respond). Google-Sheet "Paid" → message idea also not built.

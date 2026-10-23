@@ -9,7 +9,7 @@ import {
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { signInStudent, signOutStudent } from "@/app/student-actions";
 import { clearStudentCache } from "@/components/dashboard/use-student-data";
-import { db } from "./firebase";
+import { db, firebaseApp } from "./firebase";
 import { auth } from "./firebase-client";
 import type { ClassLevel } from "./types";
 
@@ -63,7 +63,32 @@ export async function signInStudentAccount(email: string, phone: string) {
 
 /** Admin sign-in (/admin-login): Firebase Authentication email + password. */
 export async function signInAdmin(email: string, password: string) {
-  await signInWithEmailAndPassword(auth(), email.trim(), password);
+  try {
+    await signInWithEmailAndPassword(auth(), email.trim(), password);
+  } catch (err) {
+    if ((err as { code?: string })?.code !== "auth/network-request-failed") throw err;
+    // One quiet retry: a dropped mobile connection often works on the second go.
+    await signInWithEmailAndPassword(auth(), email.trim(), password);
+  }
+}
+
+/**
+ * Technical details for a failed admin sign-in, shown under the error so the owner can send a screenshot:
+ * the browser's own error, whether it thinks it's online, and whether Google's sign-in server answers at all.
+ */
+export async function networkErrorDetails(err: unknown) {
+  const raw = (err as { customData?: { message?: string } })?.customData?.message || "timeout / no detail";
+  let probe: string;
+  try {
+    const res = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${firebaseApp().options.apiKey}`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}", signal: AbortSignal.timeout(10000) },
+    );
+    probe = `reachable (${res.status})`;
+  } catch (e) {
+    probe = `unreachable (${String(e)})`;
+  }
+  return `Details: ${raw} · online: ${navigator.onLine ? "yes" : "no"} · Google sign-in server: ${probe}`;
 }
 
 /** Admin password reset email (students' password is their mobile number). */
