@@ -113,6 +113,7 @@ must **never appear on the Home page**.
 | `syllabusProgress/{uid}` | `topics{topicId: {confidence 1-3}}` — topics defined in `lib/syllabus.ts` (0478/2210 for 9–10, 9618 AS/A2 for 11–12) | own read/write; admin read |
 | `pastPapers/{uid}` | `papers{"2024-s-12": {score, max, at}}` — catalogue in `lib/past-papers.ts` | own read/write; admin read |
 | `pushSubscriptions/{uid}` | `subs{key: {endpoint, keys, device}}` web-push subscriptions | own write; admin read/write |
+| `adminPush/{admin uid}` | `subs{key: {endpoint, keys, device, at}}` — admin devices that turned on alerts | **server only** (saved via `saveAdminPush` with the admin's ID token) |
 | `parentReports/{YYYY-MM}_{uid}` | month, uid, comment, sentAt (WhatsApp report log) | admin only |
 | `announcements` | title, body, category, priority, audienceType/Values, pinned, status, expiresOn | published readable by signed-in users; admin write |
 | `payments` | tuition/book/admission/other, month, amount (BDT), method, reference, receivedOn | own + admin; admin write |
@@ -144,7 +145,8 @@ or 1200 combined, Mock Exam 449/1399, **AS Computer Science Handbook (9618)** �
 
 **Student accounts (no Firebase Auth; changed 2026-10-23 at the owner's request — username = email, password = mobile number):**
 - `/signup` → `registerStudent` (`app/student-actions.ts`) writes `enrollments/{id}` (pending, `uid: ""`). **Email is required** (it's the
-  username; lowercased; must not belong to another student, an admin, or another open registration). No password fields anywhere.
+  username; lowercased; must not belong to another student, an admin, or another open registration). Name, email, mobile number and
+  **parent's mobile number are all required** (form + server). No password fields anywhere.
 - Admin → Enrollments → Confirm → `decideRegistration` (checks admin ID token) creates `students/{id}`. A registration without an email
   can't be confirmed — the row shows "No email — add it in Review", and Review has an Email field (`placement.email`).
 - Sign-in at **/login** (`signInStudentAccount` in `lib/auth.ts` → `signInStudent(email, phone)`): finds `students` by email and compares
@@ -196,6 +198,16 @@ with sharp), `public/sw.js` (push + notificationclick only, no caching; no-cache
 `VAPID_PRIVATE_KEY`); `app/push-actions.ts` `sendPush` (admin-checked, only known push-service hosts), `components/admin/notify.ts`
 `notifyStudents()` fires on: announcement published, resource shared, test results published, homework set (toggle).
 iPhone: notifications only work after "Add to Home Screen" (iOS 16.4+).
+- **Admin app** (2026-10-23): `app/admin.webmanifest/route.ts` ("CS Masterclass Admin", id + start_url `/admin`), linked by
+  `metadata.manifest` in `app/admin/layout.tsx` and /admin-login (other pages keep the student `app/manifest.ts`). Install logic shared
+  in `components/layout/use-install.ts` (`useAppSetup` in both shells). Admin top bar: **Install app** (`components/admin/install-button.tsx`
+  — browser prompt when offered, else instructions) and **Alerts** bell (`components/admin/notify-button.tsx`).
+- **Admin notifications**: `notifyAdmins()` in `lib/server/webpush.ts` (shared sender: allowed push hosts, one retry on network
+  blips/429/5xx, removes gone endpoints, logs `[admin-push] "tag": sent n, failed n`). Messages in `lib/server/admin-alerts.ts`.
+  Fired with `after()` on: new registration (`registerStudent`), batch-change request (`requestBatchChange`), student order
+  (`placeMyOrder`), public web order (order form calls `notifyNewWebOrder(orderId)` — once per order via `orders.adminNotifiedAt`,
+  only for status new + < 10 min old). Tested on emulator copy with a real FCM subscription (headless Chrome); batch-change path not
+  driven through the UI.
 
 ## Next up / open items
 

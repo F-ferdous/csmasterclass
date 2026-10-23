@@ -151,8 +151,8 @@ export function SignupForm() {
                   <input name="phone" type="tel" required autoComplete="tel" className={inputClass} placeholder="01XXXXXXXXX" />
                 </Field>
               </div>
-              <Field label="Parent's / guardian's phone" hint="Payment receipts are sent here">
-                <input name="parentPhone" type="tel" className={inputClass} placeholder="01XXXXXXXXX" />
+              <Field label="Parent's / guardian's mobile number" hint="Receipts and reports go here">
+                <input name="parentPhone" type="tel" required autoComplete="off" className={inputClass} placeholder="01XXXXXXXXX" />
               </Field>
 
               <div ref={errorRef}>

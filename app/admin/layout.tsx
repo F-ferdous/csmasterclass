@@ -12,6 +12,8 @@ export const instant = false;
 export const metadata: Metadata = {
   title: "Admin",
   robots: { index: false, follow: false },
+  // Installs as the separate admin app (app/admin.webmanifest/route.ts), not the student one.
+  manifest: "/admin.webmanifest",
 };
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

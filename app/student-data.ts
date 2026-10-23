@@ -1,6 +1,7 @@
 "use server";
 
 import { FieldValue } from "firebase-admin/firestore";
+import { after } from "next/server";
 import { isExpired, normalizeAnnouncement, reaches, sortAnnouncements } from "@/lib/announcements";
 import { normalizeMyAttendance } from "@/lib/attendance";
 import { byNewest as enrollmentsByNewest, normalizeEnrollment } from "@/lib/enrollments";
@@ -16,6 +17,8 @@ import { normalizeMyResults } from "@/lib/tests";
 import type { ClassLevel, PriceKind } from "@/lib/types";
 import { adminBucket, adminDb } from "@/lib/server/firebase-admin";
 import { requireStudent, studentDoc } from "@/lib/server/students";
+import { batchChangePayload, orderPayload } from "@/lib/server/admin-alerts";
+import { notifyAdmins } from "@/lib/server/webpush";
 
 // Everything a signed-in student reads or changes. Students have no Firebase login, so the browser
 // can't read these collections itself (firestore.rules) — each function here finds the student from
@@ -164,6 +167,7 @@ export async function requestBatchChange(input: { classLevel: ClassLevel | ""; l
       updatedAt: FieldValue.serverTimestamp(),
     });
     await wb.commit();
+    after(() => notifyAdmins(batchChangePayload({ name: me.name, classLevel: String(input.classLevel), batchName: batch.get("name") })));
   });
 }
 
@@ -253,7 +257,7 @@ export async function placeMyOrder(input: { items: OrderItem[]; address: string;
     }));
     if (!items.length) return { ok: false, error: "Choose at least one book." };
     const ref = newOrderRef();
-    await adminDb().collection("orders").add({
+    const order = {
       ref,
       uid: me.uid,
       name: me.name,
@@ -268,8 +272,9 @@ export async function placeMyOrder(input: { items: OrderItem[]; address: string;
       status: "new",
       source: "website",
       paymentStatus: "unpaid",
-      createdAt: FieldValue.serverTimestamp(),
-    });
+    };
+    await adminDb().collection("orders").add({ ...order, createdAt: FieldValue.serverTimestamp(), adminNotifiedAt: FieldValue.serverTimestamp() });
+    after(() => notifyAdmins(orderPayload(order)));
     return { ok: true, ref };
   } catch (err) {
     if ((err as Error).message === "signed-out") return { ok: false, error: "Please sign in again." };

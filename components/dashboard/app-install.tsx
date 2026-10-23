@@ -2,68 +2,14 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { Bell, BellOff, Download, Share, Smartphone, X } from "lucide-react";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import { removePushSubscription, savePushSubscription } from "@/app/student-data";
 import { useStudentSession } from "@/components/auth/student-session";
 import { vapidPublicKey } from "@/lib/push";
 import { cn } from "@/lib/utils";
+import { useInstall } from "@/components/layout/use-install";
 
-/* ───────────── Service worker + install prompt (shared, module level) ───────────── */
-
-type InstallEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
-let deferred: InstallEvent | null = null;
-const listeners = new Set<() => void>();
-const emit = () => listeners.forEach((l) => l());
-
-/** Registers /sw.js and starts listening for the browser's install prompt. Call once from the dashboard shell. */
-export function useAppSetup() {
-  useEffect(() => {
-    if (!("serviceWorker" in navigator)) return;
-    navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" }).catch(() => {});
-    const onPrompt = (e: Event) => {
-      e.preventDefault(); // show our own button instead of the mini-infobar
-      deferred = e as InstallEvent;
-      emit();
-    };
-    const onInstalled = () => {
-      deferred = null;
-      emit();
-    };
-    window.addEventListener("beforeinstallprompt", onPrompt);
-    window.addEventListener("appinstalled", onInstalled);
-    return () => {
-      window.removeEventListener("beforeinstallprompt", onPrompt);
-      window.removeEventListener("appinstalled", onInstalled);
-    };
-  }, []);
-}
-
-const subscribe = (l: () => void) => {
-  listeners.add(l);
-  return () => listeners.delete(l);
-};
-
-function useInstall() {
-  const canPrompt = useSyncExternalStore(subscribe, () => Boolean(deferred), () => false);
-  const standalone = useSyncExternalStore(
-    () => () => {},
-    () => window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true,
-    () => false,
-  );
-  const ios = useSyncExternalStore(
-    () => () => {},
-    () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1),
-    () => false,
-  );
-  const install = async () => {
-    if (!deferred) return;
-    await deferred.prompt();
-    await deferred.userChoice.catch(() => null);
-    deferred = null;
-    emit();
-  };
-  return { canPrompt, standalone, ios, install };
-}
+export { useAppSetup } from "@/components/layout/use-install";
 
 /* ───────────── Push notifications ───────────── */
 

@@ -49,7 +49,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="flex min-h-dvh flex-col">
+      {/* Browser extensions (e.g. ColorZilla's cz-shortcut-listen) add attributes to <body> before React loads. */}
+      <body className="flex min-h-dvh flex-col" suppressHydrationWarning>
         <MotionProvider>
           <AuthProvider>
             <StudentSessionProvider>{children}</StudentSessionProvider>

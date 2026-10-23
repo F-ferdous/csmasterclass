@@ -2,10 +2,13 @@
 
 import { createHash } from "node:crypto";
 import { FieldValue, type QueryDocumentSnapshot } from "firebase-admin/firestore";
+import { after } from "next/server";
 import { isAdminEmail } from "@/lib/admins";
 import { phoneKey } from "@/lib/phone";
 import { requireAdmin } from "@/lib/server/require-admin";
 import { adminDb, isCredentialError } from "@/lib/server/firebase-admin";
+import { registrationPayload } from "@/lib/server/admin-alerts";
+import { notifyAdmins } from "@/lib/server/webpush";
 import { clearSession, setSession } from "@/lib/server/session";
 import { currentStudent, studentDoc } from "@/lib/server/students";
 import type { ClassLevel } from "@/lib/types";
@@ -84,7 +87,7 @@ export async function registerStudent(input: RegistrationInput): Promise<ActionR
   if (!key) return { ok: false, error: "Enter your mobile number, e.g. 01712345678." };
   if (!validEmail(email)) return { ok: false, error: "Enter your email address — you'll sign in with it." };
   if (isAdminEmail(email)) return { ok: false, error: "This email can't be used for a student account." };
-  if (parentPhone && !phoneKey(parentPhone)) return { ok: false, error: "Enter your parent's mobile number, e.g. 01712345678." };
+  if (!phoneKey(parentPhone)) return { ok: false, error: "Enter your parent's or guardian's mobile number, e.g. 01712345678." };
   if (!classLevels.includes(input.classLevel)) return { ok: false, error: "Choose your class." };
 
   try {
@@ -132,6 +135,11 @@ export async function registerStudent(input: RegistrationInput): Promise<ActionR
       updatedAt: FieldValue.serverTimestamp(),
     });
     await wb.commit();
+    // Tell the admins (after the response, so the student isn't kept waiting).
+    after(async () => {
+      const centre = await db.doc(`locations/${String(input.locationId)}`).get().catch(() => null);
+      await notifyAdmins(registrationPayload({ name, classLevel: input.classLevel, batchName: batch.get("name"), centre: centre?.get("name") }));
+    });
     return { ok: true };
   } catch (err) {
     return fail(err);

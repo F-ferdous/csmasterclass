@@ -8,7 +8,10 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { DashboardFrame } from "@/components/dashboard/frame";
 import { db } from "@/lib/firebase";
+import { useAppSetup } from "@/components/layout/use-install";
 import { adminNav } from "./nav";
+import { AdminInstallButton } from "./install-button";
+import { AdminNotifyButton } from "./notify-button";
 
 /** Admin-only frame: sidebar, top bar and access control. */
 export function AdminShell({ children }: { children: ReactNode }) {
@@ -24,6 +27,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   }, [configured, loading, user, router, pathname]);
 
   const newOrders = useNewOrderCount(isAdmin);
+  useAppSetup(); // service worker + the browser's install prompt for the admin app
 
   if (!configured) return <Centered><p className="text-ink-soft">Firebase is not configured for this site.</p></Centered>;
   if (loading || !user) return <Centered><Loader2 className="size-6 animate-spin text-ink-soft" /></Centered>;
@@ -38,6 +42,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
       badges={{ "/admin/orders": newOrders }}
       actions={
         <>
+          <AdminNotifyButton />
+          <AdminInstallButton />
           <Link href="/" target="_blank" className="inline-flex max-sm:hidden items-center gap-1.5 rounded-full border border-line px-4 py-2 text-sm hover:border-ink">
             View site <ExternalLink className="size-3.5" aria-hidden />
           </Link>

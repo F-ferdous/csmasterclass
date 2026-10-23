@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Check, Loader2, MessageCircle, Minus, Plus, ShoppingBag, Sparkles, Truck, X } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { placeMyOrder } from "@/app/student-data";
+import { notifyNewWebOrder } from "@/app/push-actions";
 import { useStudentSession } from "@/components/auth/student-session";
 import { BookCover } from "@/components/books/book-cover";
 import { ease } from "@/components/motion/reveal";
@@ -111,7 +112,10 @@ export function OrderForm({ books }: { books: Book[] }) {
         window.scrollTo({ top: 0 });
         return;
       }
-      if (isFirebaseConfigured) await addDoc(collection(db(), "orders"), { ...order, createdAt: serverTimestamp() });
+      if (isFirebaseConfigured) {
+        const saved = await addDoc(collection(db(), "orders"), { ...order, createdAt: serverTimestamp() });
+        notifyNewWebOrder(saved.id).catch(() => {}); // admin notification — never blocks the order
+      }
       setPlaced({ ref, phone: order.phone, items, subtotal });
       window.scrollTo({ top: 0 });
     } catch (err) {
