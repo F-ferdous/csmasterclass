@@ -5,8 +5,8 @@ import { site } from "@/lib/site";
 const oldHost = "csmasterclass--cs-masterclass.us-east4.hosted.app";
 
 export function proxy(request: NextRequest) {
-  // Behind App Hosting the original address can arrive in Host, X-Forwarded-Host or Forwarded — check them all,
-  // and never redirect a request that mentions the custom domain (that would loop).
+  // On App Hosting, Host is the internal Cloud Run name (csmasterclass-….run.app) and the address the visitor typed
+  // arrives in X-Forwarded-Host (checked 2026-10-23). Never redirect a request that mentions the custom domain (loop).
   const seen = ["host", "x-forwarded-host", "forwarded"].map((h) => request.headers.get(h) ?? "").join(" ");
   const domain = new URL(site.url).host;
 
@@ -14,11 +14,6 @@ export function proxy(request: NextRequest) {
     const { pathname, search } = request.nextUrl;
     return NextResponse.redirect(new URL(pathname + search, site.url), 308);
   }
-
-  // TEMPORARY: shows which host headers reach the server on App Hosting. Remove once the redirect is confirmed.
-  const res = NextResponse.next();
-  res.headers.set("x-debug-host", seen.slice(0, 300));
-  return res;
 }
 
 export const config = {
