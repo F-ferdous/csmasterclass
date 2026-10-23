@@ -33,6 +33,9 @@ export type EnrollmentRecord = {
   note: string;
   createdAt: Date | null;
   decidedAt: Date | null;
+  /** When the WhatsApp welcome was opened for the student / parent (Admin → Enrollments). */
+  welcomedStudentAt: Date | null;
+  welcomedParentAt: Date | null;
 };
 
 /** Statuses that still hold (or wait for) a seat. */
@@ -75,6 +78,8 @@ export function normalizeEnrollment(id: string, raw: Record<string, unknown>): E
     note: str(raw.note),
     createdAt: date(raw.createdAt),
     decidedAt: date(raw.decidedAt),
+    welcomedStudentAt: date(raw.welcomedStudentAt),
+    welcomedParentAt: date(raw.welcomedParentAt),
   };
 }
 
@@ -145,6 +150,14 @@ export async function decideEnrollment(
   });
   if (status === "confirmed") wb.update(doc(db(), "students", record.uid), { batchId, locationId, classLevel, updatedAt: serverTimestamp() });
   await wb.commit();
+}
+
+/** A confirmed new student — gets the WhatsApp welcome. */
+export const isNewStudent = (r: Pick<EnrollmentRecord, "source" | "status">) => r.source === "signup" && r.status === "confirmed";
+
+/** Remembers that the welcome message was opened in WhatsApp for the student or the parent. */
+export function markWelcomed(id: string, who: "student" | "parent") {
+  return updateDoc(doc(db(), "enrollments", id), { [who === "student" ? "welcomedStudentAt" : "welcomedParentAt"]: serverTimestamp() });
 }
 
 export function markBatchFull(batchId: string) {

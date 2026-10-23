@@ -1,8 +1,8 @@
 "use client";
 
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, doc, onSnapshot, orderBy, query } from "firebase/firestore";
 import { AnimatePresence, motion } from "motion/react";
-import { Check, ClipboardCheck, ListOrdered, Loader2, Search, UserPlus, X } from "lucide-react";
+import { Check, CheckCircle2, ClipboardCheck, ListOrdered, Loader2, MessageCircle, Search, Send, UserPlus, X } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { EnrollmentPicker } from "@/components/auth/enrollment-picker";
 import { refreshCoaching } from "@/components/admin/refresh";
@@ -14,14 +14,18 @@ import {
   decideEnrollment,
   enrollmentStatusLabels,
   enrollmentStatusStyles,
+  isNewStudent,
   isRegistration,
   markBatchFull,
+  markWelcomed,
   normalizeEnrollment,
   type EnrollmentRecord,
   type EnrollmentSource,
 } from "@/lib/enrollments";
 import { db } from "@/lib/firebase";
 import { auth } from "@/lib/firebase-client";
+import { waLink } from "@/lib/phone";
+import { welcomeMessages } from "@/lib/welcome";
 import type { Batch, ClassLevel, Location } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { adminInput, Drawer, DrawerBody, DrawerFooter, drawerFormClass, EmptyState, ErrorText, Field, GhostButton, PageHeader, PrimaryButton, Spinner } from "./ui";
@@ -70,6 +74,8 @@ export function EnrollmentsManager() {
   const [batchFilter, setBatchFilter] = useState("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [reviewing, setReviewing] = useState<EnrollmentRecord | null>(null);
+  /** New students just confirmed (or reopened) — the welcome drawer offers their WhatsApp messages. */
+  const [welcoming, setWelcoming] = useState<string[]>([]);
   const [busy, setBusy] = useState("");
 
   useEffect(() => {
@@ -134,6 +140,14 @@ export function EnrollmentsManager() {
       }
     }
     return true;
+  }
+
+  /** Confirms, then offers the WhatsApp welcome for any new students among them. */
+  async function confirmAndWelcome(list: EnrollmentRecord[], options?: Placement) {
+    const ok = await confirmRecords(list, options);
+    const ids = list.filter((r) => r.source === "signup").map((r) => r.id);
+    if (ok && ids.length) setWelcoming(ids);
+    return ok;
   }
 
   async function run(key: string, fn: () => Promise<unknown>) {
@@ -281,7 +295,7 @@ export function EnrollmentsManager() {
               )}
               <button
                 type="button"
-                onClick={() => run("bulk-confirm", () => confirmRecords(selectedRecords))}
+                onClick={() => run("bulk-confirm", () => confirmAndWelcome(selectedRecords))}
                 className="inline-flex items-center gap-1.5 rounded-full bg-paper px-4 py-1.5 text-sm font-semibold text-ink"
               >
                 {busy === "bulk-confirm" ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" aria-hidden />} Confirm {selectedRecords.length}
@@ -380,7 +394,7 @@ export function EnrollmentsManager() {
                     <div className="flex flex-wrap gap-1.5 lg:justify-end">
                       {(r.status === "pending" || r.status === "waitlisted") && (
                         <>
-                          <ActionButton primary loading={busy === `confirm-${r.id}`} onClick={() => run(`confirm-${r.id}`, () => confirmRecords([r]))}>
+                          <ActionButton primary loading={busy === `confirm-${r.id}`} onClick={() => run(`confirm-${r.id}`, () => confirmAndWelcome([r]))}>
                             <Check className="size-4" aria-hidden /> Confirm
                           </ActionButton>
                           {r.status === "pending" && (
@@ -392,6 +406,16 @@ export function EnrollmentsManager() {
                             <X className="size-4" aria-hidden />
                           </ActionButton>
                         </>
+                      )}
+                      {isNewStudent(r) && (
+                        <ActionButton onClick={() => setWelcoming([r.id])}>
+                          {r.welcomedStudentAt && r.welcomedParentAt ? (
+                            <CheckCircle2 className="size-4 text-forest" aria-hidden />
+                          ) : (
+                            <MessageCircle className="size-4" aria-hidden />
+                          )}
+                          Welcome
+                        </ActionButton>
                       )}
                       <ActionButton onClick={() => setReviewing(r)}>Review</ActionButton>
                     </div>
@@ -411,12 +435,110 @@ export function EnrollmentsManager() {
             batches={batches}
             locations={locations}
             confirmedIn={confirmedIn}
-            onConfirm={(options) => confirmRecords([reviewing], options)}
+            onConfirm={(options) => confirmAndWelcome([reviewing], options)}
             onDone={() => setReviewing(null)}
           />
         )}
       </Drawer>
+
+      <Drawer open={welcoming.length > 0} title={welcoming.length > 1 ? `Welcome ${welcoming.length} students` : "Send welcome"} onClose={() => setWelcoming([])}>
+        <div className={drawerFormClass}>
+          <DrawerBody>
+            <p className="text-sm text-ink-soft">
+              Each button opens WhatsApp with the message written for you — check it, then press send. Sent messages are ticked here.
+            </p>
+            {welcoming.map((id) => {
+              const r = all.find((x) => x.id === id);
+              if (!r) return null;
+              const batch = batchById.get(r.batchId);
+              return <WelcomeCard key={id} record={r} batch={batch} location={locations.find((l) => l.id === (batch?.locationId ?? r.locationId))} />;
+            })}
+          </DrawerBody>
+          <DrawerFooter>
+            <PrimaryButton onClick={() => setWelcoming([])}>Done</PrimaryButton>
+          </DrawerFooter>
+        </div>
+      </Drawer>
     </div>
+  );
+}
+
+/** One new student's welcome: preview, and a WhatsApp button each for the student and the parent. */
+function WelcomeCard({ record, batch, location }: { record: EnrollmentRecord; batch?: Batch; location?: Location }) {
+  const [show, setShow] = useState<"student" | "parent">("student");
+  // Numbers fixed later in Admin → Students win over the ones typed at registration.
+  const [current, setCurrent] = useState<{ phone: string; parentPhone: string } | null>(null);
+  useEffect(() => {
+    if (!record.uid) return;
+    return onSnapshot(doc(db(), "students", record.uid), (snap) => {
+      const d = snap.data();
+      if (d) setCurrent({ phone: typeof d.phone === "string" ? d.phone : "", parentPhone: typeof d.parentPhone === "string" ? d.parentPhone : "" });
+    });
+  }, [record.uid]);
+  const phone = current?.phone || record.phone;
+  const parentPhone = current?.parentPhone || record.parentPhone;
+
+  const messages = welcomeMessages({ name: record.name, phone, note: record.note, batch, location });
+  const targets = [
+    { who: "student" as const, label: "Student", phone, sentAt: record.welcomedStudentAt },
+    { who: "parent" as const, label: "Parent", phone: parentPhone, sentAt: record.welcomedParentAt },
+  ];
+
+  return (
+    <article className="rounded-3xl border border-line p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="font-display text-xl">{record.name || "Unnamed student"}</p>
+        <p className="text-xs text-ink-soft">
+          Class {batch?.classLevel ?? record.classLevel} · {batch?.name ?? "—"}
+        </p>
+      </div>
+
+      <div className="mt-4 flex gap-1 rounded-full border border-line p-1 text-sm sm:w-fit" role="tablist" aria-label="Preview message for">
+        {targets.map((t) => (
+          <button
+            key={t.who}
+            type="button"
+            role="tab"
+            aria-selected={show === t.who}
+            onClick={() => setShow(t.who)}
+            className={cn("flex-1 rounded-full px-4 py-1.5", show === t.who ? "bg-ink text-paper" : "text-ink-soft hover:text-ink")}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <p className="mt-3 max-h-64 overflow-y-auto whitespace-pre-wrap rounded-2xl border border-line bg-paper-2/50 px-4 py-3.5 text-sm leading-relaxed" data-lenis-prevent>
+        {messages[show]}
+      </p>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        {targets.map((t) =>
+          t.phone ? (
+            <a
+              key={t.who}
+              href={waLink(t.phone, messages[t.who])}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => void markWelcomed(record.id, t.who).catch(() => {})}
+              className={cn(
+                "inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition-colors",
+                t.sentAt ? "border border-line font-normal hover:border-ink" : "bg-forest text-forest-ink hover:bg-ink hover:text-paper",
+              )}
+            >
+              {t.sentAt ? <CheckCircle2 className="size-4 text-forest" aria-hidden /> : <Send className="size-4" aria-hidden />}
+              {t.sentAt ? `Sent to ${t.label.toLowerCase()} · again` : `WhatsApp ${t.label.toLowerCase()}`}
+            </a>
+          ) : (
+            <p key={t.who} className="rounded-full border border-dashed border-line px-4 py-2.5 text-center text-xs text-ink-soft">
+              No {t.label.toLowerCase()} phone — add it in Students
+            </p>
+          ),
+        )}
+      </div>
+      <p className="mt-2 text-xs text-ink-faint">
+        {[phone && `Student ${phone}`, parentPhone && `Parent ${parentPhone}`].filter(Boolean).join(" · ")}
+      </p>
+    </article>
   );
 }
 

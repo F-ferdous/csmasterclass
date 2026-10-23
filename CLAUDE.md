@@ -164,7 +164,8 @@ log score), App & notifications (Profile; install card on Overview), Study mater
 
 **Admin dashboard (`/admin`):** Overview, Batches (per-day times, fee, seats, student counts),
 Locations, Students (search/filter/edit/admin toggle/books bought/CSV), Enrollments (confirm/waitlist/decline,
-capacity, bulk), Attendance (take register, history grid, rates, CSV), Tests & marks (create test for batches,
+capacity, bulk; confirming a new registration opens a **Send welcome** drawer — one-tap WhatsApp welcome to student and parent,
+text in `lib/welcome.ts`, sent ticks in `enrollments.welcomedStudentAt/welcomedParentAt`, "Welcome" button on confirmed sign-ups), Attendance (take register, history grid, rates, CSV), Tests & marks (create test for batches,
 enter marks with absent toggle, publish/unpublish), Homework (set for batches, submissions, mark + feedback, WhatsApp
 reminder), Revision (per-batch syllabus weak topics + past-paper practice table), Parent reports (month picker, per-student attendance/tests/fee summary,
 comment, one-tap WhatsApp send, sent tracking + "Next" flow),
@@ -220,4 +221,6 @@ Real testimonials/results matter for rankings too (placeholders in `lib/content.
 - Push delivery to a real phone is untested (the test browser blocks notification permission) — test on a phone after deploy.
 - Placeholder content to replace: testimonials, results, milestones, recognitions (`lib/content.ts`), owner name/email/socials (`lib/site.ts`).
 - Printable payment receipts (suggested, not built).
+- Automatic SMS without a paid provider: plan = Android phone + SIM as SMS gateway (open-source gateway app), website calls it on
+  payment/welcome. Discussed 2026-10-23, not built (SMS providers didn't respond). Google-Sheet "Paid" → message idea also not built.
 - Automatic SMS receipts (needs a BD bulk-SMS account, e.g. BulkSMSBD/Alpha SMS, + server-side API key) — WhatsApp version is built (`receiptMessage` in `lib/payments.ts`).
