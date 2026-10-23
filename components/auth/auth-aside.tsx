@@ -32,7 +32,7 @@ export function AuthAside() {
 
   return (
     // Pinned to the viewport (it never stretches with a long form), and sized so everything stays on screen.
-    <aside className="relative hidden overflow-hidden bg-band text-band-ink lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:justify-between lg:gap-6 lg:self-start lg:px-12 lg:py-10 xl:px-14 xl:py-12">
+    <aside className="relative flex max-lg:hidden overflow-hidden bg-band text-band-ink lg:sticky lg:top-0 lg:h-dvh lg:flex-col lg:justify-between lg:gap-6 lg:self-start lg:px-12 lg:py-10 xl:px-14 xl:py-12">
       {/* atmosphere */}
       <motion.div
         aria-hidden

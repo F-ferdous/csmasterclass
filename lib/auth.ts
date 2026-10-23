@@ -48,24 +48,27 @@ const studentErrors = {
   rejected: "app/registration-rejected",
   unavailable: "app/server-unavailable",
   locked: "auth/too-many-requests",
-  invalid: "auth/invalid-credential",
+  invalid: "app/student-invalid",
+  admin: "app/admin-account",
 } as const;
 
 /**
- * Sign in with a mobile number or email. Students are checked on the server (which sets their
- * session cookie); an email that isn't a student login is then tried as an admin (Firebase Auth).
+ * Student sign-in (/login): email + mobile number, checked on the server against the students
+ * collection — no Firebase Auth. The server sets the session cookie.
  */
-export async function signIn(identifier: string, password: string): Promise<"student" | "admin"> {
-  const id = identifier.trim();
-  const result = await signInStudent(id, password);
-  if (result.status === "ok") return "student";
-  if (result.status !== "try-admin") throw appError(studentErrors[result.status], result.status === "rejected" ? result.note : "");
-  await signInWithEmailAndPassword(auth(), id, password);
-  return "admin";
+export async function signInStudentAccount(email: string, phone: string) {
+  const result = await signInStudent(email.trim(), phone.trim());
+  if (result.status !== "ok") throw appError(studentErrors[result.status], result.status === "rejected" ? result.note : "");
 }
 
+/** Admin sign-in (/admin-login): Firebase Authentication email + password. */
+export async function signInAdmin(email: string, password: string) {
+  await signInWithEmailAndPassword(auth(), email.trim(), password);
+}
+
+/** Admin password reset email (students' password is their mobile number). */
 export function resetPassword(email: string) {
-  return sendPasswordResetEmail(auth(), email.trim(), { url: `${window.location.origin}/login` });
+  return sendPasswordResetEmail(auth(), email.trim(), { url: `${window.location.origin}/admin-login` });
 }
 
 /** Signs out of both kinds of account (student session cookie and admin Firebase login). */
@@ -84,10 +87,14 @@ export function authErrorMessage(err: unknown) {
   const code = (err as { code?: string })?.code ?? "";
   const detail = (err as { detail?: string })?.detail ?? "";
   switch (code) {
+    case "app/student-invalid":
+      return "That email and mobile number don't match. Use the email and mobile number you registered with.";
+    case "app/admin-account":
+      return "This is an admin account — please sign in on the admin sign-in page.";
     case "auth/invalid-credential":
     case "auth/wrong-password":
     case "auth/user-not-found":
-      return "That email/phone and password don't match. Try again or reset your password.";
+      return "That email and password don't match. Try again or reset your password.";
     case "app/registration-pending":
       return "Your registration is waiting for your teacher to confirm your seat. You can sign in once it's confirmed.";
     case "app/registration-waitlisted":
@@ -101,7 +108,7 @@ export function authErrorMessage(err: unknown) {
     case "auth/weak-password":
       return "Choose a stronger password — at least 6 characters.";
     case "auth/too-many-requests":
-      return "Too many wrong passwords. Please wait 10 minutes and try again, or ask your teacher to reset it.";
+      return "Too many wrong tries. Please wait 10 minutes and try again, or contact your teacher.";
     case "auth/operation-not-allowed":
       return "This sign-in method isn't enabled yet in Firebase Authentication.";
     case "auth/network-request-failed":

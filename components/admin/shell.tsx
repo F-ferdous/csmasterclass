@@ -19,7 +19,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Keep any filters in the URL (e.g. ?batch=…) so sign-in returns to the same view.
     if (configured && !loading && !user) {
-      router.replace(`/login?next=${encodeURIComponent(pathname + window.location.search)}`);
+      router.replace(`/admin-login?next=${encodeURIComponent(pathname + window.location.search)}`);
     }
   }, [configured, loading, user, router, pathname]);
 
@@ -38,7 +38,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       badges={{ "/admin/orders": newOrders }}
       actions={
         <>
-          <Link href="/" target="_blank" className="hidden items-center gap-1.5 rounded-full border border-line px-4 py-2 text-sm hover:border-ink sm:inline-flex">
+          <Link href="/" target="_blank" className="inline-flex max-sm:hidden items-center gap-1.5 rounded-full border border-line px-4 py-2 text-sm hover:border-ink">
             View site <ExternalLink className="size-3.5" aria-hidden />
           </Link>
         </>

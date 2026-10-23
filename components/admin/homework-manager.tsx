@@ -451,7 +451,7 @@ function StudentRow({ homework, user, batchLabel, sub, status }: { homework: Hom
                 <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink-faint">/{homework.maxMarks}</span>
               </label>
             ) : (
-              <span className="hidden sm:block" />
+              <span className="block max-sm:hidden" />
             )}
             <textarea value={feedback} onChange={(e) => setFeedback(e.target.value)} rows={2} placeholder="Feedback for the student" className={adminInput} />
             <PrimaryButton onClick={save} loading={saving}>

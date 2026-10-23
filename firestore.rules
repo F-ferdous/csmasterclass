@@ -31,7 +31,8 @@ service cloud.firestore {
     }
 
     // One record per confirmed student (created on the server when an admin confirms a registration).
-    // The password hash is in students/{id}/private/auth, which no browser may ever read.
+    // Students sign in on the server with their email + mobile number. students/{id}/private/ held the
+    // old password hashes (no longer used) — no browser may ever read it.
     match /students/{id} {
       allow read, write: if isAdmin();
 

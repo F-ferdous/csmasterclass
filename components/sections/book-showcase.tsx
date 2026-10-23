@@ -133,7 +133,7 @@ function PinnedTrack({ books, picker }: { books: Book[]; picker: LevelPick }) {
   });
 
   return (
-    <div ref={sectionRef} className="relative hidden md:block" style={{ height: `${100 + books.length * 70}vh` }}>
+    <div ref={sectionRef} className="relative block max-md:hidden" style={{ height: `${100 + books.length * 70}vh` }}>
       <div className="sticky top-0 flex h-[100svh] flex-col justify-center gap-10 overflow-hidden pt-16">
         <div className="container-x">
           <Header picker={picker} id="pin" />

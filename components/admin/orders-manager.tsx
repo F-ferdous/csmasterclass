@@ -225,7 +225,7 @@ export function OrdersManager() {
                   <span className="justify-self-end md:justify-self-start">
                     <span className={cn("rounded-full px-2.5 py-1 text-xs font-medium", statusStyles[o.status])}>{statusLabels[o.status]}</span>
                   </span>
-                  <ChevronRight className="hidden size-4 text-ink-faint md:block" aria-hidden />
+                  <ChevronRight className="block max-md:hidden size-4 text-ink-faint" aria-hidden />
                 </motion.button>
               ))}
             </AnimatePresence>

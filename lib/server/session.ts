@@ -3,8 +3,8 @@ import { cookies } from "next/headers";
 
 // Student sign-in sessions (students have no Firebase Auth account).
 // The cookie holds "payload.signature": payload = { s: student id, v: session version, e: expiry ms },
-// signed with HMAC-SHA256 using SESSION_SECRET. Bumping students/{id}.sessionVersion (password reset,
-// password change) makes every older cookie invalid.
+// signed with HMAC-SHA256 using SESSION_SECRET. Bumping students/{id}.sessionVersion makes every older
+// cookie invalid (signs that student out everywhere).
 
 // Named "__session" because Firebase Hosting (if used in front of the server) forwards only that cookie.
 export const SESSION_COOKIE = "__session";

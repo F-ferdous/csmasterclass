@@ -106,7 +106,7 @@ export function StudentSyllabus() {
             {p === "all" ? "All papers" : p}
           </button>
         ))}
-        <span className="mx-1 hidden w-px bg-line sm:block" />
+        <span className="mx-1 block max-sm:hidden w-px bg-line" />
         {(
           [
             ["all", "All topics"],

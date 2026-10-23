@@ -65,7 +65,7 @@ export function Hero() {
               <span className="relative inline-flex size-2 rounded-full bg-ember" />
             </span>
             <span className="sm:hidden">IGCSE &amp; O Level CS · 10+ years</span>
-            <span className="hidden sm:inline">Cambridge IGCSE &amp; O Level Computer Science · 10+ years</span>
+            <span className="inline max-sm:hidden">Cambridge IGCSE &amp; O Level Computer Science · 10+ years</span>
           </motion.p>
 
           <SplitHeading
@@ -102,7 +102,7 @@ export function Hero() {
 
           <motion.a
             href="#after-hero"
-            className="mt-14 hidden items-center gap-3 text-sm text-ink-soft lg:inline-flex"
+            className="mt-14 inline-flex max-lg:hidden items-center gap-3 text-sm text-ink-soft"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1.6, duration: 1 }}

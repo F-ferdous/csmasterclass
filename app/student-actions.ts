@@ -1,23 +1,21 @@
 "use server";
 
 import { createHash } from "node:crypto";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, type QueryDocumentSnapshot } from "firebase-admin/firestore";
 import { isAdminEmail } from "@/lib/admins";
 import { phoneKey } from "@/lib/phone";
 import { requireAdmin } from "@/lib/server/require-admin";
 import { adminDb, isCredentialError } from "@/lib/server/firebase-admin";
-import { hashPassword, verifyPassword, type StoredPassword } from "@/lib/server/passwords";
 import { clearSession, setSession } from "@/lib/server/session";
-import { currentStudent, passwordDoc, requireStudent, studentDoc } from "@/lib/server/students";
+import { currentStudent, studentDoc } from "@/lib/server/students";
 import type { ClassLevel } from "@/lib/types";
 
-// Student accounts — no Firebase Authentication; everything lives in Firestore:
-//  1. registerStudent → enrollments/{id} (pending, uid "") + enrollmentSecrets/{id} (scrypt hash; no client access).
-//     The hash is kept after a decline so that student is told why they can't sign in; it's removed
-//     when they register again.
-//  2. decideRegistration("confirmed") → students/{id} (profile) + students/{id}/private/auth (the hash).
-//  3. signInStudent checks the password against that hash and sets a signed session cookie
-//     (lib/server/session.ts). Admins still sign in with Firebase Auth.
+// Student accounts — no Firebase Authentication; everything lives in the Firestore students collection:
+//  1. registerStudent → enrollments/{id} (pending, uid ""). Email is required: it is the student's username.
+//  2. decideRegistration("confirmed") → students/{id} (the student's profile; id = registration id).
+//  3. signInStudent: username = email, password = the student's mobile number (compared as phoneKey, so
+//     "01712345678", "+8801712345678" and "01712-345678" all work). On success a signed session cookie is
+//     set (lib/server/session.ts). Admins sign in separately at /admin-login with Firebase Auth.
 // Every function here re-checks its caller — Server Functions are reachable by direct POST.
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -27,7 +25,6 @@ export type RegistrationInput = {
   email: string;
   phone: string;
   parentPhone: string;
-  password: string;
   classLevel: ClassLevel | "";
   locationId: string;
   batchId: string;
@@ -35,14 +32,12 @@ export type RegistrationInput = {
 
 export type SignInResult =
   | { status: "ok" }
-  /** Not a student login — the browser then tries the admin (Firebase) sign-in for this email. */
-  | { status: "try-admin" }
   | { status: "rejected"; note: string }
-  | { status: "pending" | "waitlisted" | "invalid" | "locked" | "unavailable" };
+  /** "admin": this email belongs to an admin, who signs in at /admin-login instead. */
+  | { status: "pending" | "waitlisted" | "invalid" | "locked" | "unavailable" | "admin" };
 
 const classLevels = ["9", "10", "11", "12"];
-const validEmail = (e: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
-const validPassword = (p: string) => p.length >= 6 && p.length <= 128;
+const validEmail = (e: string) => e.length <= 200 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
 
 const setupError = "The website's server isn't connected to Firebase yet. (Admin: add service-account.json — see setup notes.)";
 
@@ -53,7 +48,7 @@ function fail(err: unknown): { ok: false; error: string } {
 }
 
 // ── Brute-force protection ──────────────────────────────────────────
-// loginAttempts/{sha256(identifier)} — server only. 5 wrong passwords lock that login for 10 minutes.
+// loginAttempts/{sha256(student id or email)} — server only. 5 wrong tries lock that login for 10 minutes.
 const MAX_FAILS = 5;
 const LOCK_MS = 10 * 60 * 1000;
 const attemptDoc = (id: string) => adminDb().doc(`loginAttempts/${createHash("sha256").update(id).digest("hex")}`);
@@ -83,15 +78,13 @@ export async function registerStudent(input: RegistrationInput): Promise<ActionR
   const email = String(input.email ?? "").trim().toLowerCase();
   const phone = String(input.phone ?? "").trim();
   const parentPhone = String(input.parentPhone ?? "").trim();
-  const password = String(input.password ?? "");
   const key = phoneKey(phone);
 
   if (name.length < 2 || name.length > 100) return { ok: false, error: "Enter your full name." };
   if (!key) return { ok: false, error: "Enter your mobile number, e.g. 01712345678." };
-  if (email && !validEmail(email)) return { ok: false, error: "That email address doesn't look right." };
-  if (email && isAdminEmail(email)) return { ok: false, error: "This email can't be used for a student account." };
+  if (!validEmail(email)) return { ok: false, error: "Enter your email address — you'll sign in with it." };
+  if (isAdminEmail(email)) return { ok: false, error: "This email can't be used for a student account." };
   if (parentPhone && !phoneKey(parentPhone)) return { ok: false, error: "Enter your parent's mobile number, e.g. 01712345678." };
-  if (!validPassword(password)) return { ok: false, error: "Choose a password with at least 6 characters." };
   if (!classLevels.includes(input.classLevel)) return { ok: false, error: "Choose your class." };
 
   try {
@@ -103,23 +96,25 @@ export async function registerStudent(input: RegistrationInput): Promise<ActionR
     if (batch.get("status") === "full" || batch.get("status") === "closed") return { ok: false, error: "That batch isn't taking students — please choose another." };
 
     // Already a student, an admin, or already waiting?
-    const [byPhone, byEmail, adminByEmail, openByPhone] = await Promise.all([
+    const [byPhone, byEmail, adminByEmail, openByPhone, openByEmail] = await Promise.all([
       db.collection("students").where("phoneKey", "==", key).limit(1).get(),
-      email ? db.collection("students").where("email", "==", email).limit(1).get() : null,
-      email ? db.collection("users").where("email", "==", email).limit(1).get() : null,
+      db.collection("students").where("email", "==", email).limit(1).get(),
+      db.collection("users").where("email", "==", email).limit(1).get(),
       db.collection("enrollments").where("phoneKey", "==", key).get(),
+      db.collection("enrollments").where("email", "==", email).get(),
     ]);
-    if (!byPhone.empty || (byEmail && !byEmail.empty)) return { ok: false, error: "You already have an account — please sign in." };
-    if (adminByEmail && !adminByEmail.empty) return { ok: false, error: "This email can't be used for a student account." };
-    if (openByPhone.docs.some((d) => d.get("uid") === "" && ["pending", "waitlisted"].includes(d.get("status")))) {
+    if (!byPhone.empty || !byEmail.empty) return { ok: false, error: "You already have an account — please sign in." };
+    if (!adminByEmail.empty) return { ok: false, error: "This email can't be used for a student account." };
+    const waiting = (d: QueryDocumentSnapshot) => d.get("uid") === "" && ["pending", "waitlisted"].includes(d.get("status"));
+    if (openByPhone.docs.some(waiting)) {
       return { ok: false, error: "You've already registered with this number — your teacher will confirm your seat soon." };
+    }
+    if (openByEmail.docs.some(waiting)) {
+      return { ok: false, error: "You've already registered with this email — your teacher will confirm your seat soon." };
     }
 
     const ref = db.collection("enrollments").doc();
-    const secret = await hashPassword(password);
     const wb = db.batch();
-    // An earlier declined registration's hash is no longer needed.
-    openByPhone.docs.filter((d) => d.get("uid") === "").forEach((d) => wb.delete(db.doc(`enrollmentSecrets/${d.id}`)));
     wb.set(ref, {
       uid: "",
       name,
@@ -136,7 +131,6 @@ export async function registerStudent(input: RegistrationInput): Promise<ActionR
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
-    wb.set(db.doc(`enrollmentSecrets/${ref.id}`), { ...secret, createdAt: FieldValue.serverTimestamp() });
     await wb.commit();
     return { ok: true };
   } catch (err) {
@@ -147,91 +141,57 @@ export async function registerStudent(input: RegistrationInput): Promise<ActionR
 // ── Public: sign in / out ───────────────────────────────────────────
 
 /**
- * Student sign-in with a mobile number or email. On success the session cookie is set.
- * Emails that aren't a student login come back as "try-admin" (the same answer whether or not a
- * student has that email), so this can't be used to find out who has an account.
+ * Student sign-in: email as the username, the student's mobile number as the password.
+ * On success the session cookie is set. Wrong details always get the same answer ("invalid"),
+ * whether or not the email has an account.
  */
-export async function signInStudent(identifier: string, password: string): Promise<SignInResult> {
-  const id = String(identifier ?? "").trim().toLowerCase();
-  const pw = String(password ?? "");
-  const isEmail = id.includes("@");
-  const key = isEmail ? "" : phoneKey(id);
-  if (!pw || (!isEmail && !key) || (isEmail && !validEmail(id))) return { status: "invalid" };
-  const wrong = (): SignInResult => (isEmail ? { status: "try-admin" } : { status: "invalid" });
+export async function signInStudent(emailInput: string, phoneInput: string): Promise<SignInResult> {
+  const email = String(emailInput ?? "").trim().toLowerCase();
+  const key = phoneKey(String(phoneInput ?? ""));
+  if (!validEmail(email) || !key) return { status: "invalid" };
 
   try {
     const db = adminDb();
-    const students = await db.collection("students").where(isEmail ? "email" : "phoneKey", "==", isEmail ? id : key).limit(5).get();
-    // The lock belongs to the account, so switching between its phone and email doesn't give more tries.
-    const lockId = students.docs[0]?.id ?? (isEmail ? id : key);
+    if (isAdminEmail(email) || !(await db.collection("users").where("email", "==", email).limit(1).get()).empty) {
+      return { status: "admin" };
+    }
+    const students = await db.collection("students").where("email", "==", email).limit(5).get();
+    // The lock belongs to the account (or to the email when there's no account).
+    const lockId = students.docs[0]?.id ?? email;
     if (await isLocked(lockId)) return { status: "locked" };
 
-    for (const s of students.docs) {
-      const secret = await passwordDoc(s.id).get();
-      if (!secret.exists || !(await verifyPassword(pw, secret.data() as StoredPassword))) continue;
-      if (s.get("status") === "disabled") return { status: "invalid" };
-      await setSession(s.id, s.get("sessionVersion") ?? 1);
+    const match = students.docs.find((s) => s.get("phoneKey") === key);
+    if (match) {
+      if (match.get("status") === "disabled") return { status: "invalid" };
+      await setSession(match.id, match.get("sessionVersion") ?? 1);
       await attemptDoc(lockId).delete().catch(() => {});
       return { status: "ok" };
     }
 
     // A registration that hasn't been confirmed (yet): tell them where it stands.
-    const regs = await db.collection("enrollments").where(isEmail ? "email" : "phoneKey", "==", isEmail ? id : key).get();
-    const unconfirmed = regs.docs
-      .filter((d) => d.get("source") === "signup" && d.get("uid") === "")
-      .sort((a, b) => (b.get("createdAt")?.toMillis?.() ?? 0) - (a.get("createdAt")?.toMillis?.() ?? 0));
-    for (const reg of unconfirmed) {
-      const secret = await db.doc(`enrollmentSecrets/${reg.id}`).get();
-      if (!secret.exists || !(await verifyPassword(pw, secret.data() as StoredPassword))) continue;
-      const status = reg.get("status");
-      if (status === "pending" || status === "waitlisted") return { status };
-      return { status: "rejected", note: String(reg.get("note") ?? "") };
+    if (students.empty) {
+      const regs = await db.collection("enrollments").where("email", "==", email).get();
+      const reg = regs.docs
+        .filter((d) => d.get("source") === "signup" && d.get("uid") === "" && d.get("phoneKey") === key)
+        .sort((a, b) => (b.get("createdAt")?.toMillis?.() ?? 0) - (a.get("createdAt")?.toMillis?.() ?? 0))[0];
+      if (reg) {
+        const status = reg.get("status");
+        if (status === "pending" || status === "waitlisted") return { status };
+        if (status === "rejected") return { status: "rejected", note: String(reg.get("note") ?? "") };
+      }
     }
 
-    if (!students.empty || !isEmail) await recordFailure(lockId);
-    return wrong();
+    await recordFailure(lockId);
+    return { status: "invalid" };
   } catch (err) {
     if (isCredentialError(err)) return { status: "unavailable" };
     console.error("[student-actions] signInStudent", err);
-    return isEmail ? { status: "try-admin" } : { status: "invalid" };
+    return { status: "invalid" };
   }
 }
 
 export async function signOutStudent(): Promise<void> {
   await clearSession();
-}
-
-/** The signed-in student changes their own password (and other devices are signed out). */
-export async function changeMyPassword(current: string, next: string): Promise<ActionResult> {
-  try {
-    const me = await requireStudent();
-    if (!validPassword(String(next ?? ""))) return { ok: false, error: "Choose a new password with at least 6 characters." };
-    const secret = await passwordDoc(me.uid).get();
-    if (!secret.exists || !(await verifyPassword(String(current ?? ""), secret.data() as StoredPassword))) {
-      return { ok: false, error: "Your current password isn't right." };
-    }
-    const version = await setPassword(me.uid, String(next));
-    await setSession(me.uid, version);
-    return { ok: true };
-  } catch (err) {
-    if ((err as Error).message === "signed-out") return { ok: false, error: "Please sign in again." };
-    return fail(err);
-  }
-}
-
-/** Stores a new password hash and bumps the session version (signing out older sessions). */
-async function setPassword(id: string, password: string) {
-  const db = adminDb();
-  const secret = await hashPassword(password);
-  const ref = studentDoc(id);
-  return db.runTransaction(async (t) => {
-    const snap = await t.get(ref);
-    if (!snap.exists) throw new Error("no-student");
-    const version = (snap.get("sessionVersion") ?? 1) + 1;
-    t.set(passwordDoc(id), { ...secret, updatedAt: FieldValue.serverTimestamp() });
-    t.update(ref, { sessionVersion: version, updatedAt: FieldValue.serverTimestamp() });
-    return version;
-  });
 }
 
 /** Who is signed in as a student on this browser (null if nobody). */
@@ -246,7 +206,7 @@ export async function getSignedInStudent() {
 
 // ── Admin: decide a registration ────────────────────────────────────
 
-type Placement = { batchId?: string; locationId?: string; classLevel?: ClassLevel | ""; note?: string };
+type Placement = { batchId?: string; locationId?: string; classLevel?: ClassLevel | ""; note?: string; email?: string };
 
 export async function decideRegistration(
   idToken: string,
@@ -272,8 +232,10 @@ export async function decideRegistration(
     const locationId = placement.locationId ?? reg.locationId;
     const classLevel = placement.classLevel ?? reg.classLevel;
     const note = placement.note ?? reg.note ?? "";
-    const decided = { batchId, locationId, classLevel, note, updatedAt: FieldValue.serverTimestamp(), decidedAt: FieldValue.serverTimestamp() };
-    const secretRef = db.doc(`enrollmentSecrets/${enrollmentId}`);
+    // The admin can add or correct the email (the student's username) while deciding.
+    const email = String(placement.email ?? reg.email ?? "").trim().toLowerCase();
+    if (email && !validEmail(email)) return { ok: false, error: "That email address doesn't look right." };
+    const decided = { batchId, locationId, classLevel, note, email, updatedAt: FieldValue.serverTimestamp(), decidedAt: FieldValue.serverTimestamp() };
 
     if (decision === "waitlisted") {
       await ref.update({ ...decided, status: "waitlisted" });
@@ -285,23 +247,25 @@ export async function decideRegistration(
       return { ok: true };
     }
 
-    // Confirm: one students/{id} record, with the password they chose moved into its private part.
+    // Confirm: one students/{id} record. They sign in with this email and their mobile number.
     if (!["pending", "waitlisted"].includes(reg.status)) return { ok: false, error: "Only pending or waitlisted registrations can be confirmed." };
-    const secret = await secretRef.get();
-    if (!secret.exists) return { ok: false, error: "This registration's password is missing — ask the student to register again." };
-    const [taken, takenEmail] = await Promise.all([
+    if (!email) return { ok: false, error: `${reg.name || reg.phone} has no email — open Review and add one first (it's their username).` };
+    if (isAdminEmail(email)) return { ok: false, error: "That email belongs to an admin and can't be used for a student." };
+    if (!reg.phoneKey) return { ok: false, error: "This registration has no valid mobile number — the student's password is their mobile number." };
+    const [taken, takenEmail, adminEmail] = await Promise.all([
       db.collection("students").where("phoneKey", "==", reg.phoneKey).limit(1).get(),
-      reg.email ? db.collection("students").where("email", "==", reg.email).limit(1).get() : null,
+      db.collection("students").where("email", "==", email).limit(1).get(),
+      db.collection("users").where("email", "==", email).limit(1).get(),
     ]);
     if (!taken.empty) return { ok: false, error: `${reg.phone} already belongs to a student account.` };
-    if (takenEmail && !takenEmail.empty) return { ok: false, error: `${reg.email} already belongs to a student account.` };
+    if (!takenEmail.empty) return { ok: false, error: `${email} already belongs to a student account.` };
+    if (!adminEmail.empty) return { ok: false, error: "That email belongs to an admin and can't be used for a student." };
 
     const id = enrollmentId; // student id = registration id
-    const { passwordHash, salt } = secret.data() as StoredPassword;
     const wb = db.batch();
     wb.set(studentDoc(id), {
       name: reg.name,
-      email: reg.email ?? "",
+      email,
       phone: reg.phone,
       phoneKey: reg.phoneKey,
       parentPhone: reg.parentPhone ?? "",
@@ -315,31 +279,12 @@ export async function decideRegistration(
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
-    wb.set(passwordDoc(id), { passwordHash, salt, updatedAt: FieldValue.serverTimestamp() });
-    wb.delete(secretRef);
+    // Left over from when students chose their own password — no longer used.
+    wb.delete(db.doc(`enrollmentSecrets/${enrollmentId}`));
     wb.update(ref, { ...decided, uid: id, status: "confirmed" });
     await wb.commit();
     return { ok: true };
   } catch (err) {
-    return fail(err);
-  }
-}
-
-// ── Admin: reset a student's password ───────────────────────────────
-
-export async function setStudentPassword(idToken: string, uid: string, password: string): Promise<ActionResult> {
-  try {
-    await requireAdmin(idToken);
-  } catch (err) {
-    return isCredentialError(err) ? { ok: false, error: setupError } : { ok: false, error: "Only admins can do this." };
-  }
-  if (!validPassword(String(password ?? ""))) return { ok: false, error: "Use at least 6 characters." };
-  try {
-    await setPassword(String(uid), String(password));
-    await attemptDoc(String(uid)).delete().catch(() => {}); // a reset also lifts any sign-in lock
-    return { ok: true };
-  } catch (err) {
-    if ((err as Error).message === "no-student") return { ok: false, error: "This student account doesn't exist." };
     return fail(err);
   }
 }

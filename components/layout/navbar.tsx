@@ -52,7 +52,7 @@ export function Navbar() {
         <nav className="container-x flex h-18 items-center justify-between" aria-label="Main">
           <Logo />
 
-          <ul className="hidden items-center gap-1 rounded-full border border-line bg-paper/60 p-1 backdrop-blur md:flex">
+          <ul className="flex max-md:hidden items-center gap-1 rounded-full border border-line bg-paper/60 p-1 backdrop-blur">
             {site.nav.map((item) => (
               <li key={item.href} className="relative">
                 {isActive(item.href) && (

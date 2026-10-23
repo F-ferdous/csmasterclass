@@ -4,11 +4,10 @@ import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { Check, KeyRound, Loader2, LogOut } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { changeMyPassword } from "@/app/student-actions";
 import { requestBatchChange, updateMyProfile } from "@/app/student-data";
 import { signOut, type Enrollment } from "@/lib/auth";
 import { useStudentSession } from "@/components/auth/student-session";
-import { ErrorNote, Field, inputClass, PasswordInput } from "@/components/auth/auth-ui";
+import { ErrorNote, Field, inputClass } from "@/components/auth/auth-ui";
 import { useCoaching } from "@/components/auth/use-locations";
 import { EnrollmentPicker } from "@/components/auth/enrollment-picker";
 import { refreshStudentData } from "./use-student-data";
@@ -60,7 +59,7 @@ export function StudentProfile() {
 
       <div className="space-y-8">
         <ProfileForm key={profile.uid} />
-        <PasswordForm />
+        <SignInDetails email={profile.email} phone={profile.phone} />
         <AppSettings />
       </div>
     </div>
@@ -147,69 +146,29 @@ function ProfileForm() {
   );
 }
 
-/** Change password — signs out the student's other devices. */
-function PasswordForm() {
-  const [state, setState] = useState<"idle" | "saving" | "saved">("idle");
-  const [error, setError] = useState("");
-
-  async function onSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const data = new FormData(form);
-    const next = String(data.get("next"));
-    if (next !== String(data.get("confirm"))) return setError("The new passwords don't match.");
-    setState("saving");
-    setError("");
-    try {
-      const result = await changeMyPassword(String(data.get("current")), next);
-      if (!result.ok) {
-        setError(result.error);
-        setState("idle");
-        return;
-      }
-      form.reset();
-      setState("saved");
-      setTimeout(() => setState("idle"), 2500);
-    } catch {
-      setError("Couldn't change your password — try again.");
-      setState("idle");
-    }
-  }
-
+/** How this student signs in: email + mobile number (only the teacher can change either). */
+function SignInDetails({ email, phone }: { email: string; phone: string }) {
   return (
-    <motion.form
-      onSubmit={onSubmit}
+    <motion.section
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.7, delay: 0.15, ease }}
-      className="space-y-6 rounded-[2rem] border border-line p-6 sm:p-10"
+      className="rounded-[2rem] border border-line p-6 sm:p-10"
     >
-      <div>
-        <h2 className="flex items-center gap-2 font-display text-2xl">
-          <KeyRound className="size-5 text-ember" aria-hidden /> Password
-        </h2>
-        <p className="mt-1 text-sm text-ink-soft">Changing it signs you out on your other devices. Forgot it? Ask your teacher to set a new one.</p>
-      </div>
-      <Field label="Current password">
-        <PasswordInput name="current" required autoComplete="current-password" />
-      </Field>
-      <div className="grid gap-6 sm:grid-cols-2">
-        <Field label="New password">
-          <PasswordInput name="next" required minLength={6} autoComplete="new-password" />
-        </Field>
-        <Field label="Repeat new password">
-          <PasswordInput name="confirm" required minLength={6} autoComplete="new-password" />
-        </Field>
-      </div>
-      <ErrorNote message={error} />
-      <button
-        type="submit"
-        disabled={state === "saving"}
-        className="inline-flex items-center gap-2 rounded-full border border-line px-6 py-3.5 text-sm font-semibold hover:border-ink disabled:opacity-60"
-      >
-        {state === "saving" ? <Loader2 className="size-4 animate-spin" /> : state === "saved" ? <Check className="size-4" /> : null}
-        {state === "saved" ? "Password changed" : "Change password"}
-      </button>
-    </motion.form>
+      <h2 className="flex items-center gap-2 font-display text-2xl">
+        <KeyRound className="size-5 text-ember" aria-hidden /> How you sign in
+      </h2>
+      <dl className="mt-5 grid gap-4 sm:grid-cols-2">
+        <div className="rounded-2xl bg-paper-2/70 p-4">
+          <dt className="text-xs text-ink-soft">Email (username)</dt>
+          <dd className="mt-1 break-all font-medium">{email || "—"}</dd>
+        </div>
+        <div className="rounded-2xl bg-paper-2/70 p-4">
+          <dt className="text-xs text-ink-soft">Password — your mobile number</dt>
+          <dd className="mt-1 font-medium">{phone || "—"}</dd>
+        </div>
+      </dl>
+      <p className="mt-4 text-sm text-ink-soft">If your email or mobile number changes, ask your teacher to update it.</p>
+    </motion.section>
   );
 }

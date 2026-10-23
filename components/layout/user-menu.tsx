@@ -16,7 +16,7 @@ export function AuthActions() {
 
   if (!configured || loading || session.loading) {
     // Keep layout stable while auth state loads.
-    return <span className="hidden h-11 w-[188px] sm:block" aria-hidden />;
+    return <span className="block max-sm:hidden h-11 w-[188px]" aria-hidden />;
   }
 
   if (session.student) {
@@ -29,13 +29,13 @@ export function AuthActions() {
       <>
         <Link
           href="/login"
-          className="hidden rounded-full px-4 py-2.5 text-sm font-medium text-ink-soft transition-colors hover:text-ink lg:inline-flex"
+          className="inline-flex max-lg:hidden rounded-full px-4 py-2.5 text-sm font-medium text-ink-soft transition-colors hover:text-ink"
         >
           Sign in
         </Link>
         <Link
           href="/signup"
-          className="hidden rounded-full bg-forest px-5 py-2.5 text-sm font-semibold text-forest-ink transition-colors hover:bg-ink hover:text-paper sm:inline-flex"
+          className="inline-flex max-sm:hidden rounded-full bg-forest px-5 py-2.5 text-sm font-semibold text-forest-ink transition-colors hover:bg-ink hover:text-paper"
         >
           Join now
         </Link>
@@ -69,7 +69,7 @@ function AccountMenu({ name, email, isAdmin }: { name: string; email: string; is
   }, [open]);
 
   return (
-    <div ref={ref} className="relative hidden sm:block">
+    <div ref={ref} className="relative block max-sm:hidden">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}

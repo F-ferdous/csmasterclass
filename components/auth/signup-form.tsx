@@ -11,13 +11,14 @@ import { classLevels } from "@/lib/coaching";
 import type { ClassLevel } from "@/lib/types";
 import { useAuth } from "./auth-provider";
 import { useStudentSession } from "./student-session";
-import { ErrorNote, Field, inputClass, NotConfiguredNote, PasswordInput, SubmitButton } from "./auth-ui";
+import { ErrorNote, Field, inputClass, NotConfiguredNote, SubmitButton } from "./auth-ui";
 import { EnrollmentPicker } from "./enrollment-picker";
 import { useCoaching } from "./use-locations";
 
 /**
  * Registration for a batch. Nothing is created in Firebase Auth here — the request waits in
- * Admin → Enrollments, and the student's login is created when an admin confirms the seat.
+ * Admin → Enrollments. Once an admin confirms the seat, the student signs in with this email
+ * (username) and mobile number (password).
  */
 export function SignupForm() {
   const router = useRouter();
@@ -35,7 +36,7 @@ export function SignupForm() {
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [done, setDone] = useState<{ name: string; identifier: string } | null>(null);
+  const [done, setDone] = useState<{ name: string; email: string; phone: string } | null>(null);
   const errorRef = useRef<HTMLDivElement>(null);
 
   // Already signed in → this page isn't for you.
@@ -65,21 +66,18 @@ export function SignupForm() {
     const missing = enrollmentError();
     if (missing) return setError(missing);
     const data = new FormData(e.currentTarget);
-    const password = String(data.get("password"));
-    if (password !== String(data.get("confirm"))) return setError("The two passwords don't match.");
-    if (password.length < 6) return setError("Choose a password with at least 6 characters.");
 
     setBusy(true);
     setError("");
     const name = String(data.get("name") ?? "").trim();
     const email = String(data.get("email") ?? "").trim();
     const phone = String(data.get("phone") ?? "").trim();
-    const result = await registerStudent({ name, email, phone, parentPhone: String(data.get("parentPhone") ?? ""), password, ...enrollment }).catch(
+    const result = await registerStudent({ name, email, phone, parentPhone: String(data.get("parentPhone") ?? ""), ...enrollment }).catch(
       () => ({ ok: false as const, error: "Network error — check your connection and try again." }),
     );
     setBusy(false);
     if (!result.ok) return setError(result.error);
-    setDone({ name: name.split(" ")[0], identifier: email || phone });
+    setDone({ name: name.split(" ")[0], email: email.toLowerCase(), phone });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -91,8 +89,9 @@ export function SignupForm() {
         </span>
         <h1 className="mt-6 font-display text-4xl sm:text-5xl">Registration received{done.name ? `, ${done.name}` : ""}!</h1>
         <p className="mt-4 leading-relaxed text-ink-soft">
-          Your teacher will review your request and confirm your seat in the batch. Once it&apos;s confirmed, sign in with{" "}
-          <strong className="font-medium text-ink">{done.identifier}</strong> and the password you just chose.
+          Your teacher will review your request and confirm your seat in the batch. Once it&apos;s confirmed, sign in with your email{" "}
+          <strong className="font-medium text-ink">{done.email}</strong> and your mobile number{" "}
+          <strong className="font-medium text-ink">{done.phone}</strong> as the password.
         </p>
         <p className="mt-3 text-sm text-ink-soft">If you try to sign in before then, we&apos;ll tell you it&apos;s still waiting for confirmation.</p>
         <div className="mt-8 flex flex-wrap gap-3">
@@ -145,31 +144,23 @@ export function SignupForm() {
                 <input name="name" required autoComplete="name" className={inputClass} placeholder="Your name" />
               </Field>
               <div className="grid gap-5 sm:grid-cols-2">
-                <Field label="Mobile number" hint="You'll sign in with this">
-                  <input name="phone" type="tel" required autoComplete="tel" className={inputClass} placeholder="01XXXXXXXXX" />
+                <Field label="Email" hint="Your username">
+                  <input name="email" type="email" required autoComplete="email" className={inputClass} placeholder="you@example.com" />
                 </Field>
-                <Field label="Email" hint="Optional">
-                  <input name="email" type="email" autoComplete="email" className={inputClass} placeholder="you@example.com" />
+                <Field label="Mobile number" hint="Your password">
+                  <input name="phone" type="tel" required autoComplete="tel" className={inputClass} placeholder="01XXXXXXXXX" />
                 </Field>
               </div>
               <Field label="Parent's / guardian's phone" hint="Payment receipts are sent here">
                 <input name="parentPhone" type="tel" className={inputClass} placeholder="01XXXXXXXXX" />
               </Field>
-              <div className="grid gap-5 sm:grid-cols-2">
-                <Field label="Password">
-                  <PasswordInput name="password" required minLength={6} autoComplete="new-password" placeholder="At least 6 characters" />
-                </Field>
-                <Field label="Confirm password">
-                  <PasswordInput name="confirm" required minLength={6} autoComplete="new-password" placeholder="Repeat password" />
-                </Field>
-              </div>
 
               <div ref={errorRef}>
                 <ErrorNote message={error} />
               </div>
               <SubmitButton loading={busy}>Send registration</SubmitButton>
               <p className="text-center text-xs text-ink-soft">
-                Your teacher confirms your seat first — then you can sign in with your mobile number or email.
+                Your teacher confirms your seat first — then you sign in with your email and your mobile number as the password.
               </p>
             </fieldset>
           </form>

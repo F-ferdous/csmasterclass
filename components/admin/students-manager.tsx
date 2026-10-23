@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { collection, doc, getDocs, limit, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { AnimatePresence, motion } from "motion/react";
 import { AlertTriangle, BookCheck, ChevronRight, Download, GraduationCap, KeyRound, Mail, MessageCircle, Phone, Search, X } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
@@ -13,9 +13,8 @@ import type { Enrollment } from "@/lib/auth";
 import { placeStudent } from "@/lib/enrollments";
 import { classLevels, groupSessions } from "@/lib/coaching";
 import { db } from "@/lib/firebase";
-import { auth } from "@/lib/firebase-client";
+import { isAdminEmail } from "@/lib/admins";
 import { phoneKey, waLink } from "@/lib/phone";
-import { setStudentPassword } from "@/app/student-actions";
 import type { Batch, Book, ClassLevel, Location } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { adminInput, Drawer, DrawerBody, DrawerFooter, drawerFormClass, EmptyState, ErrorText, Field, GhostButton, PageHeader, PrimaryButton, Spinner } from "./ui";
@@ -187,7 +186,7 @@ export function StudentsManager() {
         ) : (
           <div className="overflow-hidden rounded-3xl border border-line">
             {/* Desktop header */}
-            <div className="hidden grid-cols-[1.6fr_0.6fr_1fr_1fr_0.8fr_24px] gap-4 border-b border-line bg-paper-2/50 px-5 py-3 text-xs font-medium uppercase tracking-[0.12em] text-ink-faint md:grid">
+            <div className="grid max-md:hidden grid-cols-[1.6fr_0.6fr_1fr_1fr_0.8fr_24px] gap-4 border-b border-line bg-paper-2/50 px-5 py-3 text-xs font-medium uppercase tracking-[0.12em] text-ink-faint">
               <span>Student</span>
               <span>Class</span>
               <span>Centre</span>
@@ -220,12 +219,12 @@ export function StudentsManager() {
                         </span>
                       </span>
                     </span>
-                    <span className="hidden text-sm md:block">{s.classLevel ? `Class ${s.classLevel}` : "—"}</span>
-                    <span className="hidden truncate text-sm md:block">{locationName.get(s.locationId) ?? "—"}</span>
-                    <span className="hidden truncate text-sm md:block">
+                    <span className="block max-md:hidden text-sm">{s.classLevel ? `Class ${s.classLevel}` : "—"}</span>
+                    <span className="block max-md:hidden truncate text-sm">{locationName.get(s.locationId) ?? "—"}</span>
+                    <span className="block max-md:hidden truncate text-sm">
                       {batch ? batch.name : <span className="inline-flex items-center gap-1 text-ember"><AlertTriangle className="size-3.5" aria-hidden /> None</span>}
                     </span>
-                    <span className="hidden text-sm text-ink-soft md:block">{formatDate(s.joined)}</span>
+                    <span className="block max-md:hidden text-sm text-ink-soft">{formatDate(s.joined)}</span>
                     <ChevronRight className="size-4 text-ink-faint" aria-hidden />
                   </motion.button>
                 );
@@ -284,17 +283,19 @@ function StudentForm({ student, locations, batches, books, onDone }: { student: 
     setError("");
     try {
       const name = String(f.get("name")).trim();
+      const email = String(f.get("email")).trim().toLowerCase();
       const phone = String(f.get("phone")).trim();
       const parentPhone = String(f.get("parentPhone")).trim();
-      if (phone && !phoneKey(phone)) {
+      const problem = await signInProblem(student.uid, email, phone);
+      if (problem) {
         setSaving(false);
-        return setError("Enter a Bangladeshi mobile number, e.g. 01712345678.");
+        return setError(problem);
       }
-      // phoneKey is what the student signs in with.
-      await updateDoc(doc(db(), "students", student.uid), { name, phone, phoneKey: phoneKey(phone), parentPhone, ...enrollment, booksOwned: owned, updatedAt: serverTimestamp() });
+      // Students sign in with email (username) + mobile number (password, compared as phoneKey).
+      await updateDoc(doc(db(), "students", student.uid), { name, email, phone, phoneKey: phoneKey(phone), parentPhone, ...enrollment, booksOwned: owned, updatedAt: serverTimestamp() });
       // Moving a student yourself counts as a confirmed seat (and closes their old request).
       if (enrollment.batchId && enrollment.batchId !== student.batchId) {
-        await placeStudent({ uid: student.uid, name, email: student.email, phone, ...enrollment }, "admin");
+        await placeStudent({ uid: student.uid, name, email, phone, ...enrollment }, "admin");
       }
       onDone();
     } catch (err) {
@@ -353,15 +354,15 @@ function StudentForm({ student, locations, batches, books, onDone }: { student: 
           <Field label="Name">
             <input name="name" defaultValue={student.name} className={adminInput} required />
           </Field>
-          <Field label="Phone">
-            <input name="phone" type="tel" defaultValue={student.phone} className={adminInput} placeholder="01XXXXXXXXX" />
+          <Field label="Phone" hint="Their password">
+            <input name="phone" type="tel" required defaultValue={student.phone} className={adminInput} placeholder="01XXXXXXXXX" />
           </Field>
         </div>
+        <Field label="Email" hint="Their username">
+          <input name="email" type="email" required defaultValue={student.email} className={adminInput} placeholder="student@example.com" />
+        </Field>
         <Field label="Parent's / guardian's phone" hint="Payment receipts go here">
           <input name="parentPhone" type="tel" defaultValue={student.parentPhone} className={adminInput} placeholder="01XXXXXXXXX" />
-        </Field>
-        <Field label="Email" hint="Can't be changed here">
-          <input value={student.email} readOnly placeholder="No email — signs in with mobile number" className={cn(adminInput, "bg-paper-2 text-ink-soft")} />
         </Field>
 
         <div className="border-t border-line pt-5">
@@ -375,7 +376,7 @@ function StudentForm({ student, locations, batches, books, onDone }: { student: 
 
         <BooksBought books={books} classLevel={enrollment.classLevel} owned={owned} onChange={setOwned} />
 
-        <PasswordReset uid={student.uid} name={student.name} />
+        <SignInDetails email={student.email} phone={student.phone} />
 
         <ErrorText message={error} />
       </DrawerBody>
@@ -432,59 +433,38 @@ function BooksBought({ books, classLevel, owned, onChange }: { books: Book[]; cl
   );
 }
 
-/** For students who forget their password (phone-only students can't use the email reset link). */
-function PasswordReset({ uid, name }: { uid: string; name: string }) {
-  const [open, setOpen] = useState(false);
-  const [password, setPassword] = useState("");
-  const [state, setState] = useState<"idle" | "saving" | "done">("idle");
-  const [error, setError] = useState("");
+/** Why these sign-in details can't be saved, or "" if they're fine (email unique, valid mobile number). */
+async function signInProblem(uid: string, email: string, phone: string) {
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return "Enter the student's email — it's their username for signing in.";
+  if (!phoneKey(phone)) return "Enter a Bangladeshi mobile number, e.g. 01712345678 — it's their password for signing in.";
+  if (isAdminEmail(email)) return "That email belongs to an admin.";
+  const [students, admins] = await Promise.all([
+    getDocs(query(collection(db(), "students"), where("email", "==", email), limit(2))),
+    getDocs(query(collection(db(), "users"), where("email", "==", email), limit(1))),
+  ]);
+  if (students.docs.some((d) => d.id !== uid)) return `${email} already belongs to another student.`;
+  if (!admins.empty) return "That email belongs to an admin.";
+  return "";
+}
 
-  async function save() {
-    if (password.length < 6) return setError("Use at least 6 characters.");
-    setState("saving");
-    setError("");
-    const token = await auth().currentUser?.getIdToken();
-    const result = token ? await setStudentPassword(token, uid, password) : { ok: false as const, error: "Please sign in again." };
-    if (!result.ok) {
-      setError(result.error);
-      return setState("idle");
-    }
-    setState("done");
-  }
-
-  if (!open) {
-    return (
-      <button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 text-sm underline underline-offset-4">
-        <KeyRound className="size-4" aria-hidden /> Set a new password
-      </button>
-    );
-  }
+/** What the student types on the sign-in page (as saved — edits apply after Save changes). */
+function SignInDetails({ email, phone }: { email: string; phone: string }) {
   return (
     <div className="rounded-2xl border border-line p-4">
       <p className="flex items-center gap-1.5 text-sm font-medium">
-        <KeyRound className="size-4" aria-hidden /> New password for {name || "this student"}
+        <KeyRound className="size-4" aria-hidden /> Sign-in details
       </p>
-      {state === "done" ? (
-        <p className="mt-2 text-sm text-forest">Password changed — they’re signed out everywhere. Tell the student their new password; they can sign in with it now.</p>
-      ) : (
-        <>
-          <div className="mt-3 flex gap-2">
-            <input
-              type="text"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="off"
-              placeholder="At least 6 characters"
-              aria-label="New password"
-              className={adminInput}
-            />
-            <PrimaryButton onClick={save} loading={state === "saving"} className="shrink-0">
-              Set
-            </PrimaryButton>
-          </div>
-          <ErrorText message={error} />
-        </>
-      )}
+      <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div>
+          <dt className="text-xs text-ink-soft">Username (email)</dt>
+          <dd className="mt-0.5 break-all text-sm font-medium">{email || <span className="text-ember">No email — add one above</span>}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-ink-soft">Password (mobile number)</dt>
+          <dd className="mt-0.5 text-sm font-medium">{phone || <span className="text-ember">No mobile number — add one above</span>}</dd>
+        </div>
+      </dl>
+      <p className="mt-3 text-xs text-ink-soft">Students sign in at cs-masterclass.com/login. Changing the email or mobile number changes what they sign in with.</p>
     </div>
   );
 }

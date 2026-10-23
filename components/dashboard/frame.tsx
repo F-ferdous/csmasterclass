@@ -84,7 +84,7 @@ export function DashboardFrame({ children, nav, subtitle, name, email, actions, 
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[272px_1fr]">
-      <aside className="sticky top-0 hidden h-dvh border-r border-line bg-paper-2/40 lg:block">{sidebar}</aside>
+      <aside className="sticky top-0 block max-lg:hidden h-dvh border-r border-line bg-paper-2/40">{sidebar}</aside>
 
       <AnimatePresence>
         {mobileOpen && (

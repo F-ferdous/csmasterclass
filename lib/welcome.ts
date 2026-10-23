@@ -5,16 +5,18 @@ import type { Batch, Location } from "./types";
 
 /**
  * WhatsApp welcome messages sent (one tap each) when a new student's registration is confirmed
- * in Admin → Enrollments. The password is never included — the student chose it at registration.
+ * in Admin → Enrollments. Students sign in with their email (username) and mobile number (password).
  */
 export function welcomeMessages({
   name,
+  email,
   phone,
   note,
   batch,
   location,
 }: {
   name: string;
+  email: string;
   phone: string;
   note?: string;
   batch?: Batch;
@@ -36,7 +38,11 @@ export function welcomeMessages({
     `Your seat is confirmed.`,
     ...details,
     ``,
-    `Your student dashboard is ready. Sign in at ${site.url}/login with your mobile number${phone ? ` (${phone})` : ""} and the password you chose when you registered. Your timetable, homework, test results and study materials are all there.`,
+    `Your student dashboard is ready. Sign in at ${site.url}/login`,
+    `Email: ${email || "the email you registered with"}`,
+    `Password: your mobile number${phone ? ` (${phone})` : ""}`,
+    ``,
+    `Your timetable, homework, test results and study materials are all there.`,
     ...extra,
     ``,
     `See you in class!`,

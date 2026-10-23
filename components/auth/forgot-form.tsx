@@ -32,8 +32,8 @@ export function ForgotForm() {
 
   return (
     <div>
-      <Link href="/login" className="group inline-flex items-center gap-2 text-sm text-ink-soft hover:text-ink">
-        <ArrowLeft className="size-4 transition-transform group-hover:-translate-x-1" aria-hidden /> Back to sign in
+      <Link href="/admin-login" className="group inline-flex items-center gap-2 text-sm text-ink-soft hover:text-ink">
+        <ArrowLeft className="size-4 transition-transform group-hover:-translate-x-1" aria-hidden /> Back to admin sign in
       </Link>
 
       {state === "sent" ? (
@@ -62,8 +62,11 @@ export function ForgotForm() {
           <div className="mt-6 rounded-2xl border border-forest/30 bg-forest/[0.07] p-5">
             <p className="font-medium">Students</p>
             <p className="mt-1 text-sm leading-relaxed text-ink-soft">
-              Ask your teacher to set a new password for you — it only takes a minute. Then sign in with your mobile number (or email) and the new
-              password, and change it from your Profile if you like.
+              Your password is the mobile number you registered with. Sign in on the{" "}
+              <Link href="/login" className="font-medium text-ink underline underline-offset-4 hover:text-ember">
+                student sign-in page
+              </Link>{" "}
+              with your email and that number. If your number has changed, ask your teacher to update it.
             </p>
           </div>
           <p className="mt-8 text-sm font-medium">Admins</p>

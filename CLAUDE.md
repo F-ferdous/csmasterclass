@@ -15,8 +15,8 @@ must **never appear on the Home page**.
   This is NOT the Next.js in training data — read `node_modules/next/dist/docs/` before using an API.
 - React 19, TypeScript, **Tailwind CSS v4** (tokens in `app/globals.css` `@theme inline`).
 - **Motion** (`motion/react`) for animation, **Lenis** smooth scroll, `lucide-react` icons.
-- **Firebase** (client SDK v13): Auth (**admins only**), Firestore, Storage, Analytics. Students have **no Firebase Auth** —
-  see "Student accounts" below.
+- **Firebase** (client SDK v13): Auth (**admins only**, sign in at **/admin-login**), Firestore, Storage, Analytics. Students have
+  **no Firebase Auth** — they sign in at **/login** with **email (username) + mobile number (password)**; see "Student accounts" below.
   **Storage** enabled 2026-10-14 (bucket `cs-masterclass.firebasestorage.app`, rules deployed from `storage.rules`).
 - Font: **Roboto only** (user's choice). Light/dark theme toggle (`data-theme` on `<html>`, saved in localStorage).
 
@@ -63,6 +63,9 @@ must **never appear on the Home page**.
   `components/admin/nav.ts`, `components/dashboard/student-nav.ts` (`soon: true` → placeholder page via `[section]`).
 - Admin UI primitives: `components/admin/ui.tsx` (PageHeader, Drawer/DrawerBody/DrawerFooter, Field, Segmented, buttons, EmptyState).
 - All clickable elements get `cursor: pointer` globally (base layer in globals.css).
+- **Never use the bare `hidden` class with a breakpoint to show something** (`hidden lg:block`). Write `block max-lg:hidden`
+  instead. Browser extensions inject `.hidden{display:none!important}`, which kept the dashboard sidebar hidden and squeezed the
+  page into a 272px column on the owner's desktop (fixed 2026-10-23 across 23 places).
 - Charts: plain SVG in `components/admin/charts.tsx`, following the dataviz skill. Series colours are
   validated tokens `--series-1..4` (green, ember, blue, gold; separate dark values). Re-run the palette
   validator before changing them. Every chart has a table view + tooltip.
@@ -83,22 +86,24 @@ must **never appear on the Home page**.
 
 ## Admin access
 
+- Admins sign in at **/admin-login** (Firebase Auth email + password; `components/auth/admin-login-form.tsx`). `/admin` redirects
+  signed-out visitors there. Admin password reset: /forgot-password (email link). Students never use Firebase Auth.
 - Owner admin account: **admin@cs-masterclass.com** (always admin by email — `lib/admins.ts` + `isAdmin()` in rules).
 - Anyone else becomes admin by creating them in Firebase Auth and setting `users/{uid}.role = "admin"` (console). `users` holds admins only.
-- After sign-in: admins → `/admin`, students → `/dashboard` (unless `?next=`).
+- After sign-in: admins → `/admin`, students → `/dashboard` (unless `?next=`). An admin email typed on /login gets "this is an admin account".
 
 ## Firestore data model (see `firestore.rules`)
 
 | Collection | Purpose | Access |
 |---|---|---|
 | `users/{uid}` | **admin** profiles only (Firebase Auth uid) | own read; admin write |
-| `students/{id}` | id = registration id. name, email, phone, **phoneKey** (8801…, sign-in), parentPhone, classLevel, locationId, batchId (= confirmed batch), photoURL, **booksOwned**, status (active/disabled), **sessionVersion** | admin read/write; students go through the server |
-| `students/{id}/private/auth` | scrypt `passwordHash` + `salt` | **server only** (no browser, not even admins) |
-| `loginAttempts/{sha256(studentId or identifier)}` | failed sign-in count / lock until | server only |
+| `students/{id}` | id = registration id. name, **email** (lowercase, unique — the username), phone, **phoneKey** (8801… — the password is compared against this), parentPhone, classLevel, locationId, batchId (= confirmed batch), photoURL, **booksOwned**, status (active/disabled), **sessionVersion** | admin read/write; students go through the server |
+| `students/{id}/private/auth` | old scrypt hashes from before 2026-10-23 — **no longer used** (left in place, not deleted) | **server only** |
+| `loginAttempts/{sha256(studentId or email)}` | failed sign-in count / lock until | server only |
 | `locations` | coaching centres | public read, admin write |
 | `batches` | classLevel, locationId, name, board, `sessions[{day,start,end}]` (per-day times), seats, **fee** (BDT/month), status, notes | public read, admin write |
 | `enrollments` | registrations (`uid: ""`, source signup, phoneKey, parentPhone — server-written) and batch-change requests (source profile): pending → confirmed/waitlisted/rejected/cancelled | students create own `profile` requests only; admin decides (registrations via server) |
-| `enrollmentSecrets/{id}` | scrypt hash of the password chosen at registration, until an admin confirms (then moved to `students/{id}/private/auth`) | server only |
+| `enrollmentSecrets/{id}` | old: password hashes from registrations before 2026-10-23 — **no longer written**; deleted when that registration is confirmed | server only |
 | `attendance/{batchId}_{YYYY-MM-DD}` | register: `records{uid: present/late/absent/excused}`, note | admin only |
 | `studentAttendance/{uid}` | student's own copy: `records{sessionId: {batchId,date,start,end,mark}}`, written with each register save | own read; admin write |
 | `tests/{id}` | title, type (class-test/mock/quiz), paper, date, maxMarks, batchIds, `marks{uid: number\|"absent"}`, published | admin only |
@@ -135,17 +140,24 @@ or 1200 combined, Mock Exam 449/1399, **AS Computer Science Handbook (9618)** �
   optional = Topical Notes; Class 11 must = AS Handbook; Class 12 none (sees the whole library).
 - Admin → Students → student → **Books bought** ticks (`students.booksOwned`) hide those books from the student's suggestions.
 - **Bundle popup** (`components/sections/bundle-popup.tsx`, in `app/(site)/layout.tsx`): 400×300, opens 2.5 s into a visit on
-  public pages, once per browser session (sessionStorage `bundle-popup-seen`).
+  public pages, once per browser session (sessionStorage `bundle-popup-seen`); headline says "All five O Level books" + "O Level & IGCSE 0478 / 2210".
 
-**Student accounts (since 2026-10-14 — students get a login only when an admin confirms them; no Firebase Auth):**
-- `/signup` → `registerStudent` (`app/student-actions.ts`) writes `enrollments/{id}` (pending, `uid: ""`) + `enrollmentSecrets/{id}`.
-- Admin → Enrollments → Confirm → `decideRegistration` (checks admin ID token) creates `students/{id}` + `students/{id}/private/auth`
-  (hash moved from enrollmentSecrets) and sets the enrollment's uid. Waitlist/Decline keep the hash (declined student sees the note).
-- Sign-in (`signIn` in `lib/auth.ts`): `signInStudent` checks phone/email + scrypt and sets a **signed HttpOnly cookie** `__session`
-  (HMAC with `SESSION_SECRET`, 30 days, `lib/server/session.ts`) + readable flag `cs_student=1`. Emails that aren't a student →
-  `try-admin` → Firebase Auth (admins). 5 wrong passwords lock the account 10 min (`loginAttempts`).
-- `sessionVersion` on the student: password change (`changeMyPassword`, Profile) and admin reset (`setStudentPassword`) bump it →
-  every older cookie stops working. Forgot password = ask the teacher (admins still get an email link).
+**Student accounts (no Firebase Auth; changed 2026-10-23 at the owner's request — username = email, password = mobile number):**
+- `/signup` → `registerStudent` (`app/student-actions.ts`) writes `enrollments/{id}` (pending, `uid: ""`). **Email is required** (it's the
+  username; lowercased; must not belong to another student, an admin, or another open registration). No password fields anywhere.
+- Admin → Enrollments → Confirm → `decideRegistration` (checks admin ID token) creates `students/{id}`. A registration without an email
+  can't be confirmed — the row shows "No email — add it in Review", and Review has an Email field (`placement.email`).
+- Sign-in at **/login** (`signInStudentAccount` in `lib/auth.ts` → `signInStudent(email, phone)`): finds `students` by email and compares
+  `phoneKey(phone)` (so 017…, +88017…, 017-… all work), then sets a **signed HttpOnly cookie** `__session` (HMAC with `SESSION_SECRET`,
+  30 days, `lib/server/session.ts`) + readable flag `cs_student=1`. 5 wrong tries lock the account 10 min (`loginAttempts`). Unconfirmed
+  registrations get pending / waitlisted / declined (+ note) messages; disabled students get the generic "don't match".
+- Admin → Students: email and phone are editable (`signInProblem()` checks a valid email, unique among students, not an admin, and a valid
+  BD mobile) and a "Sign-in details" box shows username + password (= mobile number). Student Profile shows "How you sign in"; only the
+  teacher can change either. `changeMyPassword` / `setStudentPassword` / `lib/server/passwords.ts` were removed.
+- Welcome WhatsApp message (`lib/welcome.ts`) lists "Email: …" and "Password: your mobile number (…)".
+- Tested 2026-10-23: `e2e` script (puppeteer, emulator copy, prod build) — 33 checks × 3 fresh rounds, all passed (signup, duplicate email,
+  pending, /admin-login, admin email on /login, confirm + welcome text, phone spellings, profile, sign-out, wrong number, lock, declined,
+  disabled, no-email confirm via Review, admin edit duplicate email, phone change).
 - Current student: `currentStudent()` / `requireStudent()` in `lib/server/students.ts`. Browser: `StudentSessionProvider` /
   `useStudentSession()` (`components/auth/student-session.tsx`, in the root layout); admins: `useAuth()`.
 - **All student data goes through the server**: `app/student-data.ts` (reads + saves, each starts with `requireStudent()`), cached in

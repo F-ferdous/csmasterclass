@@ -28,7 +28,7 @@ export function WeekTimetable({ sessions, batchName }: { sessions: Session[]; ba
           >
             <p className={cn("w-24 shrink-0 text-sm font-medium sm:w-auto", isToday && "text-ember")}>
               <span className="sm:hidden">{fullDayName[d]}</span>
-              <span className="hidden sm:inline">{d}</span>
+              <span className="inline max-sm:hidden">{d}</span>
               {isToday && <span className="ml-1.5 text-[10px] uppercase tracking-wider">Today</span>}
             </p>
             <div className="flex flex-1 flex-col gap-1.5">

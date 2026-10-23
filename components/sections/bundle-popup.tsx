@@ -124,14 +124,14 @@ export function BundlePopup({ books, tiers }: { books: Book[]; tiers: Tier[] }) 
               </motion.span>
               <motion.h2
                 id="bundle-popup-title"
-                className="mt-3 font-display text-2xl leading-[1.1] text-balance"
+                className="mt-3 font-display text-xl leading-[1.1] text-balance min-[400px]:text-2xl"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.3, ease }}
               >
-                All five books. <em className="text-band-accent">One price.</em>
+                All five O&nbsp;Level books. <em className="text-band-accent">One price.</em>
               </motion.h2>
-              <p className="mt-1 text-xs opacity-70">{bundle.title} · 0478 / 2210</p>
+              <p className="mt-1.5 text-xs opacity-80">{bundle.title} · O&nbsp;Level &amp; IGCSE 0478&nbsp;/&nbsp;2210</p>
 
               <div className="mt-auto">
                 {soft.separate && (

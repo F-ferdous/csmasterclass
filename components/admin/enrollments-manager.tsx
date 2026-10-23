@@ -51,7 +51,8 @@ const inTab = (r: EnrollmentRecord, tab: Tab) =>
   tab === "all" ? true : tab === "closed" ? r.status === "rejected" || r.status === "cancelled" : r.status === tab;
 
 type Decision = "confirmed" | "waitlisted" | "rejected";
-type Placement = { batchId?: string; locationId?: string; classLevel?: ClassLevel | ""; note?: string };
+/** `email` lets the admin add or fix a new student's email (their username) when deciding. */
+type Placement = { batchId?: string; locationId?: string; classLevel?: ClassLevel | ""; note?: string; email?: string };
 
 /** Registrations (no login yet) are decided on the server, which creates the login on confirm. */
 async function decide(r: EnrollmentRecord, status: Decision, options: Placement = {}) {
@@ -113,7 +114,7 @@ export function EnrollmentsManager() {
   const selectedRecords = selectable.filter((r) => selected.has(r.id));
 
   /** Confirms with seat checks; offers to mark a batch Full once it fills up. */
-  async function confirmRecords(list: EnrollmentRecord[], options?: { batchId?: string; locationId?: string; classLevel?: ClassLevel | ""; note?: string }) {
+  async function confirmRecords(list: EnrollmentRecord[], options?: Placement) {
     const target = (r: EnrollmentRecord) => options?.batchId ?? r.batchId;
     const perBatch = new Map<string, number>();
     list.forEach((r) => perBatch.set(target(r), (perBatch.get(target(r)) ?? 0) + 1));
@@ -341,7 +342,7 @@ export function EnrollmentsManager() {
                     exit={{ opacity: 0, height: 0 }}
                     className="grid gap-3 border-b border-line px-5 py-4 last:border-b-0 lg:grid-cols-[auto_1.3fr_1.5fr_auto] lg:items-center lg:gap-5"
                   >
-                    <div className="hidden lg:block">
+                    <div className="block max-lg:hidden">
                       {canSelect ? (
                         <input
                           type="checkbox"
@@ -369,6 +370,9 @@ export function EnrollmentsManager() {
                           <span className="inline-flex items-center gap-1 rounded-full bg-series-3/15 px-2 py-0.5 font-medium text-series-3">
                             <UserPlus className="size-3" aria-hidden /> New student · no login yet
                           </span>
+                        )}
+                        {isRegistration(r) && !r.email && (r.status === "pending" || r.status === "waitlisted") && (
+                          <span className="rounded-full bg-ember/15 px-2 py-0.5 font-medium text-ember">No email — add it in Review before confirming</span>
                         )}
                         {sourceLabels[r.source]} · {formatDate(r.createdAt)}
                       </p>
@@ -466,19 +470,20 @@ export function EnrollmentsManager() {
 /** One new student's welcome: editable message, and a WhatsApp button each for the student and the parent. */
 function WelcomeCard({ record, batch, location }: { record: EnrollmentRecord; batch?: Batch; location?: Location }) {
   const [show, setShow] = useState<"student" | "parent">("student");
-  // Numbers fixed later in Admin → Students win over the ones typed at registration.
-  const [current, setCurrent] = useState<{ phone: string; parentPhone: string } | null>(null);
+  // Email and numbers fixed later in Admin → Students win over the ones typed at registration.
+  const [current, setCurrent] = useState<{ email: string; phone: string; parentPhone: string } | null>(null);
   useEffect(() => {
     if (!record.uid) return;
     return onSnapshot(doc(db(), "students", record.uid), (snap) => {
       const d = snap.data();
-      if (d) setCurrent({ phone: typeof d.phone === "string" ? d.phone : "", parentPhone: typeof d.parentPhone === "string" ? d.parentPhone : "" });
+      if (d) setCurrent({ email: typeof d.email === "string" ? d.email : "", phone: typeof d.phone === "string" ? d.phone : "", parentPhone: typeof d.parentPhone === "string" ? d.parentPhone : "" });
     });
   }, [record.uid]);
+  const email = current?.email || record.email;
   const phone = current?.phone || record.phone;
   const parentPhone = current?.parentPhone || record.parentPhone;
 
-  const generated = welcomeMessages({ name: record.name, phone, note: record.note, batch, location });
+  const generated = welcomeMessages({ name: record.name, email, phone, note: record.note, batch, location });
   // The admin's edits for this student (kept while the panel is open); the WhatsApp buttons send the edited text.
   const [drafts, setDrafts] = useState<Partial<Record<"student" | "parent", string>>>({});
   const messages = { student: drafts.student ?? generated.student, parent: drafts.parent ?? generated.parent };
@@ -605,11 +610,12 @@ function ReviewForm({
   batches: Batch[];
   locations: Location[];
   confirmedIn: (batchId: string) => number;
-  onConfirm: (options: { batchId: string; locationId: string; classLevel: ClassLevel | ""; note: string }) => Promise<boolean>;
+  onConfirm: (options: Placement) => Promise<boolean>;
   onDone: () => void;
 }) {
   const [placement, setPlacement] = useState<Enrollment>({ classLevel: record.classLevel, locationId: record.locationId, batchId: record.batchId });
   const [note, setNote] = useState(record.note);
+  const [email, setEmail] = useState(record.email);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const batch = batches.find((b) => b.id === placement.batchId);
@@ -617,14 +623,19 @@ function ReviewForm({
 
   async function act(kind: "confirmed" | "waitlisted" | "rejected") {
     if (!placement.batchId) return setError("Choose a batch.");
+    // New students sign in with their email, so it's needed before their seat is confirmed.
+    const options: Placement = isRegistration(record) ? { ...placement, note, email: email.trim().toLowerCase() } : { ...placement, note };
+    if (kind === "confirmed" && isRegistration(record) && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(options.email ?? "")) {
+      return setError("Add the student's email — it's their username for signing in.");
+    }
     setBusy(kind);
     setError("");
     try {
       if (kind === "confirmed") {
-        const ok = await onConfirm({ ...placement, note });
+        const ok = await onConfirm(options);
         if (!ok) return setBusy("");
       } else {
-        await decide(record, kind, { ...placement, note });
+        await decide(record, kind, options);
       }
       onDone();
     } catch (err) {
@@ -651,7 +662,7 @@ function ReviewForm({
         <div className="border-t border-line pt-5">
           <p className="mb-3 text-sm text-ink-soft">
             Confirm the requested batch, or move the student to another one.
-            {isRegistration(record) && " Confirming creates their login — they sign in with their mobile number (or email) and the password they chose."}
+            {isRegistration(record) && " Confirming creates their login — they sign in with their email as the username and their mobile number as the password."}
           </p>
           <EnrollmentPicker value={placement} onChange={setPlacement} locations={locations} batches={batches} loading={false} allowFull />
           {batch && batch.seats > 0 && (
@@ -660,6 +671,12 @@ function ReviewForm({
             </p>
           )}
         </div>
+
+        {isRegistration(record) && (
+          <Field label="Email" hint="Their username for signing in">
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={adminInput} placeholder="student@example.com" />
+          </Field>
+        )}
 
         <Field label="Note to the student" hint="Optional — shown on their dashboard">
           <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} className={adminInput} placeholder="e.g. Classes start on 1 November. Please bring your Paper 1 notes." />

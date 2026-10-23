@@ -453,7 +453,7 @@ function MarksSheet({
                     <span className="sr-only">{v === "absent" ? "Undo absent" : "Absent"}</span>
                   </button>
                 </div>
-                <p className="hidden text-right text-sm tabular-nums text-ink-soft sm:block">{pct === null ? "" : `${pct}% · ${approxGrade(pct)}`}</p>
+                <p className="block max-sm:hidden text-right text-sm tabular-nums text-ink-soft">{pct === null ? "" : `${pct}% · ${approxGrade(pct)}`}</p>
               </div>
             );
           })}

@@ -48,7 +48,7 @@ export function StudentShell({ children }: { children: ReactNode }) {
       name={student.name || "Student"}
       email={student.email || student.phone}
       actions={
-        <Link href="/" className="hidden rounded-full border border-line px-4 py-2 text-sm hover:border-ink sm:inline-flex">
+        <Link href="/" className="inline-flex max-sm:hidden rounded-full border border-line px-4 py-2 text-sm hover:border-ink">
           Website
         </Link>
       }
