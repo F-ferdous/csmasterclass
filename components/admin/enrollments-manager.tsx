@@ -445,7 +445,7 @@ export function EnrollmentsManager() {
         <div className={drawerFormClass}>
           <DrawerBody>
             <p className="text-sm text-ink-soft">
-              Each button opens WhatsApp with the message written for you — check it, then press send. Sent messages are ticked here.
+              Change the wording below if you like — each button opens WhatsApp with that message ready, then you press send. Sent messages are ticked here.
             </p>
             {welcoming.map((id) => {
               const r = all.find((x) => x.id === id);
@@ -463,7 +463,7 @@ export function EnrollmentsManager() {
   );
 }
 
-/** One new student's welcome: preview, and a WhatsApp button each for the student and the parent. */
+/** One new student's welcome: editable message, and a WhatsApp button each for the student and the parent. */
 function WelcomeCard({ record, batch, location }: { record: EnrollmentRecord; batch?: Batch; location?: Location }) {
   const [show, setShow] = useState<"student" | "parent">("student");
   // Numbers fixed later in Admin → Students win over the ones typed at registration.
@@ -478,7 +478,10 @@ function WelcomeCard({ record, batch, location }: { record: EnrollmentRecord; ba
   const phone = current?.phone || record.phone;
   const parentPhone = current?.parentPhone || record.parentPhone;
 
-  const messages = welcomeMessages({ name: record.name, phone, note: record.note, batch, location });
+  const generated = welcomeMessages({ name: record.name, phone, note: record.note, batch, location });
+  // The admin's edits for this student (kept while the panel is open); the WhatsApp buttons send the edited text.
+  const [drafts, setDrafts] = useState<Partial<Record<"student" | "parent", string>>>({});
+  const messages = { student: drafts.student ?? generated.student, parent: drafts.parent ?? generated.parent };
   const targets = [
     { who: "student" as const, label: "Student", phone, sentAt: record.welcomedStudentAt },
     { who: "parent" as const, label: "Parent", phone: parentPhone, sentAt: record.welcomedParentAt },
@@ -504,12 +507,28 @@ function WelcomeCard({ record, batch, location }: { record: EnrollmentRecord; ba
             className={cn("flex-1 rounded-full px-4 py-1.5", show === t.who ? "bg-ink text-paper" : "text-ink-soft hover:text-ink")}
           >
             {t.label}
+            {drafts[t.who] !== undefined && <span className="ml-1.5 text-xs opacity-60">edited</span>}
           </button>
         ))}
       </div>
-      <p className="mt-3 max-h-64 overflow-y-auto whitespace-pre-wrap rounded-2xl border border-line bg-paper-2/50 px-4 py-3.5 text-sm leading-relaxed" data-lenis-prevent>
-        {messages[show]}
-      </p>
+      <label className="mt-3 block">
+        <span className="sr-only">Message to the {show}</span>
+        <textarea
+          value={messages[show]}
+          onChange={(e) => setDrafts((d) => ({ ...d, [show]: e.target.value }))}
+          rows={12}
+          className={cn(adminInput, "resize-y text-sm leading-relaxed")}
+          data-lenis-prevent
+        />
+      </label>
+      <div className="mt-1.5 flex items-center justify-between gap-3 text-xs text-ink-faint">
+        <span>Edit the message here before sending — changes apply to this {show} only.</span>
+        {drafts[show] !== undefined && (
+          <button type="button" onClick={() => setDrafts((d) => ({ ...d, [show]: undefined }))} className="shrink-0 text-ink-soft underline-offset-4 hover:text-ink hover:underline">
+            Reset to original
+          </button>
+        )}
+      </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         {targets.map((t) =>

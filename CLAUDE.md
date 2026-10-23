@@ -57,7 +57,9 @@ must **never appear on the Home page**.
 - Pages using `useSearchParams` are wrapped in `<Suspense>`.
 - Never pass icon components/functions from a server page to a client component (look them up client-side).
 - Redirects belong in `next.config.ts` `redirects()` (e.g. `/account → /dashboard/profile`), not in a page.
-- Shared dashboard chrome: `components/dashboard/frame.tsx` (`DashboardFrame`). Nav configs:
+- Shared dashboard chrome: `components/dashboard/frame.tsx` (`DashboardFrame`). The sidebar menu (`SidebarNav`) scrolls on short
+  screens: compact spacing below 820px height, current page kept in view, "More" hint when links are hidden (2026-10-23 —
+  on 768–900px-tall laptops Orders/Payments/Reports were below the fold with no hint). Content max width `max-w-7xl`. Nav configs:
   `components/admin/nav.ts`, `components/dashboard/student-nav.ts` (`soon: true` → placeholder page via `[section]`).
 - Admin UI primitives: `components/admin/ui.tsx` (PageHeader, Drawer/DrawerBody/DrawerFooter, Field, Segmented, buttons, EmptyState).
 - All clickable elements get `cursor: pointer` globally (base layer in globals.css).
@@ -165,7 +167,7 @@ log score), App & notifications (Profile; install card on Overview), Study mater
 **Admin dashboard (`/admin`):** Overview, Batches (per-day times, fee, seats, student counts),
 Locations, Students (search/filter/edit/admin toggle/books bought/CSV), Enrollments (confirm/waitlist/decline,
 capacity, bulk; confirming a new registration opens a **Send welcome** drawer — one-tap WhatsApp welcome to student and parent,
-text in `lib/welcome.ts`, sent ticks in `enrollments.welcomedStudentAt/welcomedParentAt`, "Welcome" button on confirmed sign-ups), Attendance (take register, history grid, rates, CSV), Tests & marks (create test for batches,
+text in `lib/welcome.ts`, editable per student in the drawer before sending (edits not saved), sent ticks in `enrollments.welcomedStudentAt/welcomedParentAt`, "Welcome" button on confirmed sign-ups), Attendance (take register, history grid, rates, CSV), Tests & marks (create test for batches,
 enter marks with absent toggle, publish/unpublish), Homework (set for batches, submissions, mark + feedback, WhatsApp
 reminder), Revision (per-batch syllabus weak topics + past-paper practice table), Parent reports (month picker, per-student attendance/tests/fee summary,
 comment, one-tap WhatsApp send, sent tracking + "Next" flow),
@@ -216,6 +218,10 @@ Real testimonials/results matter for rankings too (placeholders in `lib/content.
   run `npx firebase-tools@13.35.1 emulators:start --only auth,firestore,storage --project demo-cs` there (ports in firebase.json), seed with
   firebase-admin, and `next dev --port 3100`. Tested 2026-10-13: register → pending msg → confirm/waitlist/decline → phone & email sign-in →
   materials per batch → batch change → password reset → tampering blocked (all passed).
+- Admin UI screenshots at any width (2026-10-23): emulator copy as above + seed script (locations, batches, 24 students,
+  enrollments, payments, orders, tests, attendance, homework, announcements) + `puppeteer-core` driving the installed Google Chrome
+  headless (sign in with the emulator admin, `setViewport`, screenshot each `/admin/*` route). Widths checked: 375, 1024, 1280,
+  1366×768, 1440, 1920 — no horizontal overflow anywhere.
 - Flow/rules tests: run against emulators (Auth + Firestore + Storage) with firebase-admin pointed at them. Emulator needs Java 21 for current firebase-tools (Mac has 17) → use `npx firebase-tools@13.35.1`; port 8080 is taken by Docker.
 - Push needs HTTPS (works on the live site, not on plain http://localhost from a phone).
 - Push delivery to a real phone is untested (the test browser blocks notification permission) — test on a phone after deploy.

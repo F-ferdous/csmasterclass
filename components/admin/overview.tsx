@@ -98,7 +98,7 @@ export function Overview() {
               <li key={m.id} className="py-3.5">
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="truncate font-medium">{m.name}</p>
-                  <span className="shrink-0 rounded-full bg-paper-2 px-2.5 py-0.5 text-xs">{m.topic}</span>
+                  {m.topic && <span className="shrink-0 rounded-full bg-paper-2 px-2.5 py-0.5 text-xs">{m.topic}</span>}
                 </div>
                 <p className="mt-0.5 line-clamp-1 text-sm text-ink-soft">{m.message}</p>
               </li>
