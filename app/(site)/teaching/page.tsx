@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { PageHero } from "@/components/ui/page-hero";
 import { SectionHeader } from "@/components/ui/section-header";
@@ -8,11 +9,15 @@ import { TopicMarquee } from "@/components/sections/marquee";
 import { CtaBand } from "@/components/sections/cta-band";
 import { Coaching } from "@/components/sections/coaching";
 import { formats, lessonFlow, principles, subjects } from "@/lib/content";
+import { aLevel, oLevel } from "@/lib/courses";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Teaching",
-  description: "Computer Science coaching at Mirpur Academia and Uttara QED — batches for Class 9 to 12, Cambridge and Edexcel students welcome.",
-};
+export const metadata: Metadata = pageMetadata({
+  title: "Computer Science Coaching in Dhaka — Mirpur & Uttara Batches",
+  description:
+    "Computer Science classes at Mirpur Academia and Uttara QED, Dhaka — batches for Class 9 to 12, O Level / IGCSE 0478 / 2210 and A Level 9618, Cambridge and Edexcel.",
+  path: "/teaching",
+});
 
 export default function TeachingPage() {
   return (
@@ -24,6 +29,28 @@ export default function TeachingPage() {
       />
       <TopicMarquee />
       <Coaching />
+
+      {/* Course guides — one page per syllabus */}
+      <section className="container-x pb-20 sm:pb-28">
+        <Stagger className="grid gap-5 md:grid-cols-2">
+          {[oLevel, aLevel].map((c) => (
+            <StaggerItem key={c.path}>
+              <Link
+                href={c.path}
+                className="group flex h-full flex-col rounded-[2rem] border border-line p-8 transition-[transform,box-shadow] duration-500 hover:-translate-y-1.5 hover:shadow-soft sm:p-10"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <p className="font-mono text-xs uppercase tracking-[0.18em] text-ember">{c.eyebrow}</p>
+                  <ArrowUpRight className="size-5 shrink-0 text-ink-faint transition-all duration-500 group-hover:-translate-y-1 group-hover:translate-x-1 group-hover:text-ember" aria-hidden />
+                </div>
+                <h2 className="mt-8 font-display text-3xl leading-tight sm:text-4xl">{c.name}</h2>
+                <p className="mt-3 leading-relaxed text-ink-soft">{c.description}</p>
+                <p className="mt-auto pt-8 text-sm font-semibold">Course guide, syllabus &amp; FAQs</p>
+              </Link>
+            </StaggerItem>
+          ))}
+        </Stagger>
+      </section>
 
       {/* Principles — sticky heading, scrolling list */}
       <section className="container-x grid gap-12 py-20 sm:py-28 lg:grid-cols-[0.9fr_1.1fr] lg:gap-20">

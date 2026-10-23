@@ -7,11 +7,14 @@ import { StatsBand } from "@/components/sections/stats";
 import { Timeline } from "@/components/sections/timeline";
 import { CtaBand } from "@/components/sections/cta-band";
 import { milestones, recognitions, results, testimonials } from "@/lib/content";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Success",
-  description: "Results, milestones and stories from over a decade of teaching computer science.",
-};
+export const metadata: Metadata = pageMetadata({
+  title: "Student Results & Reviews — O Level & A Level Computer Science",
+  description:
+    "A* and A grades in Cambridge and Edexcel Computer Science, university places and reviews from students and parents — over a decade of teaching in Dhaka.",
+  path: "/success",
+});
 
 export default function SuccessPage() {
   return (

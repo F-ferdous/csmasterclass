@@ -7,14 +7,28 @@ import { BookShowcase } from "@/components/sections/book-showcase";
 import { BundleOffer } from "@/components/sections/bundle-offer";
 import { SuccessPreview } from "@/components/sections/success-preview";
 import { Newsletter } from "@/components/sections/newsletter";
-import { getBooks } from "@/lib/data";
+import { FaqSection } from "@/components/sections/faq";
+import { JsonLd } from "@/components/seo/json-ld";
+import { getBooks, getCoaching } from "@/lib/data";
+import { faqs } from "@/lib/content";
+import { organizationLd, pageMetadata, websiteLd } from "@/lib/seo";
+import { site } from "@/lib/site";
+
+export const metadata = pageMetadata({
+  title: `O Level & A Level Computer Science in ${site.city} | ${site.brand}`,
+  absoluteTitle: true,
+  description:
+    "Cambridge O Level, IGCSE (0478 / 2210) and AS & A Level (9618) Computer Science classes in Mirpur and Uttara, Dhaka — plus handbooks, topical notes, question banks and mock papers.",
+  path: "/",
+});
 
 export default async function HomePage() {
-  const books = await getBooks();
+  const [books, { locations }] = await Promise.all([getBooks(), getCoaching()]);
   const byFeature = [...books].sort((a, b) => Number(b.featured) - Number(a.featured) || a.order - b.order);
 
   return (
     <>
+      <JsonLd data={[organizationLd(locations), websiteLd()]} />
       <Hero />
       <TopicMarquee />
       <StatsBand />
@@ -23,6 +37,10 @@ export default async function HomePage() {
       <BatchesLocations />
       <Approach />
       <SuccessPreview />
+      <FaqSection
+        faqs={faqs}
+        intro="Classes, centres, books and how to join — the short answers. Anything else, just send a message."
+      />
       <Newsletter />
     </>
   );

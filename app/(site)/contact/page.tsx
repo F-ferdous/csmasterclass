@@ -4,11 +4,14 @@ import { PageHero } from "@/components/ui/page-hero";
 import { Reveal } from "@/components/motion/reveal";
 import { ContactForm } from "@/components/sections/contact-form";
 import { site } from "@/lib/site";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Contact",
-  description: "Enquire about classes, one-to-one mentoring, school workshops or book orders.",
-};
+export const metadata: Metadata = pageMetadata({
+  title: "Contact — Computer Science Classes & Book Orders",
+  description:
+    "Ask about O Level / IGCSE and A Level Computer Science batches in Mirpur and Uttara, Dhaka, one-to-one mentoring, school workshops or book orders.",
+  path: "/contact",
+});
 
 export default function ContactPage() {
   return (

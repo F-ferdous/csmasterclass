@@ -10,7 +10,9 @@ import { BookCard } from "@/components/books/book-card";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/reveal";
 import { SplitHeading } from "@/components/motion/split-heading";
 import { buttonClass, ButtonLink } from "@/components/ui/button";
+import { JsonLd } from "@/components/seo/json-ld";
 import { getBook, getBooks } from "@/lib/data";
+import { bookLd, breadcrumbLd, pageMetadata } from "@/lib/seo";
 
 export async function generateStaticParams() {
   const books = await getBooks();
@@ -21,11 +23,13 @@ export async function generateMetadata({ params }: PageProps<"/books/[slug]">): 
   const { slug } = await params;
   const book = await getBook(slug);
   if (!book) return { title: "Book not found" };
-  return {
-    title: book.title,
+  const codes = book.syllabus?.match(/\d{4}/g)?.join(" / ");
+  return pageMetadata({
+    title: `${book.title} — ${codes ? `Computer Science ${codes}` : "Computer Science book"}`,
     description: book.description,
-    openGraph: { title: book.title, description: book.description, images: book.coverUrl ? [book.coverUrl] : undefined },
-  };
+    path: `/books/${book.slug}`,
+    images: book.coverUrl ? [book.coverUrl] : undefined,
+  });
 }
 
 export default function BookPage(props: PageProps<"/books/[slug]">) {
@@ -45,6 +49,16 @@ async function BookDetails({ params }: Pick<PageProps<"/books/[slug]">, "params"
 
   return (
     <>
+      <JsonLd
+        data={[
+          bookLd(book),
+          breadcrumbLd([
+            { name: "Home", path: "/" },
+            { name: "Books", path: "/books" },
+            { name: book.title, path: `/books/${book.slug}` },
+          ]),
+        ]}
+      />
       <section className="relative overflow-hidden pb-16 pt-28 sm:pt-36">
         <div aria-hidden className="dot-grid absolute inset-0 [mask-image:radial-gradient(ellipse_at_20%_30%,black,transparent_60%)]" />
         <div className="container-x relative">

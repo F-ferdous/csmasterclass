@@ -3,11 +3,14 @@ import { Suspense } from "react";
 import { OrderForm } from "@/components/books/order-form";
 import { PageHero } from "@/components/ui/page-hero";
 import { getBooks } from "@/lib/data";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Order books",
-  description: "Order CS Masterclass books — softcopy or printed, one title or the complete bundle.",
-};
+export const metadata: Metadata = pageMetadata({
+  title: "Order Computer Science Books",
+  description:
+    "Order O Level / IGCSE 0478 / 2210 and AS 9618 Computer Science books — softcopy or printed, one title or the complete bundle. Pay after we confirm by phone or WhatsApp.",
+  path: "/order",
+});
 
 export default function OrderPage() {
   return (

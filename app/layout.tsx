@@ -6,6 +6,7 @@ import { Analytics } from "@/components/layout/analytics";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { StudentSessionProvider } from "@/components/auth/student-session";
 import { site } from "@/lib/site";
+import { seoKeywords } from "@/lib/seo";
 import "./globals.css";
 
 // Roboto everywhere — headings, body, labels and code.
@@ -17,11 +18,22 @@ const roboto = Roboto({
   display: "swap",
 });
 
+// Defaults for every page. Public pages add their own title, description and canonical link (pageMetadata in lib/seo.ts).
 export const metadata: Metadata = {
   metadataBase: new URL(site.url),
-  title: { default: `${site.brand} — Teaching, Results & Books`, template: `%s · ${site.brand}` },
-  description: site.description,
-  openGraph: { title: site.brand, description: site.description, type: "website" },
+  title: { default: `O Level & A Level Computer Science in ${site.city} | ${site.brand}`, template: `%s · ${site.brand}` },
+  description:
+    "Cambridge O Level, IGCSE (0478 / 2210) and AS & A Level (9618) Computer Science classes in Mirpur and Uttara, Dhaka — plus handbooks, topical notes, question banks and mock papers.",
+  applicationName: site.brand,
+  keywords: seoKeywords,
+  category: "education",
+  creator: site.brand,
+  publisher: site.brand,
+  formatDetection: { telephone: false, email: false, address: false },
+  robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1, "max-video-preview": -1 } },
+  openGraph: { type: "website", siteName: site.brand, locale: "en_BD" },
+  twitter: { card: "summary_large_image" },
+  ...(site.googleVerification ? { verification: { google: site.googleVerification } } : {}),
 };
 
 export const viewport: Viewport = {

@@ -33,13 +33,15 @@ must **never appear on the Home page**.
 - Config: `.env.local` (git-ignored) holds the Firebase web config, `SESSION_SECRET` and the VAPID keys.
 - **Hosting: Firebase App Hosting**, backend **`csmasterclass`** in **`us-east4`**, created 2026-10-23 in the console and connected
   to GitHub `F-ferdous/csmasterclass`, branch `main`, root `/`. **Every push to `main` deploys automatically.**
-  Live: **https://csmasterclass--cs-masterclass.us-east4.hosted.app** (= `site.url`; switch to the custom domain once bought).
+  **Custom domain `cs-masterclass.com`** connected 2026-10-23 (= `site.url`; DNS resolves, HTTPS certificate was still provisioning
+  that day). Old address https://csmasterclass--cs-masterclass.us-east4.hosted.app still works; canonical links point to the domain.
   `apphosting.yaml` holds the public `NEXT_PUBLIC_*` values (BUILD + RUNTIME) and references the Secret Manager secrets
   `SESSION_SECRET` (random, never change — signs every student out) and `VAPID_PRIVATE_KEY` (same as `.env.local`); the backend
   was granted access with `apphosting:secrets:grantaccess --backend csmasterclass --location us-east4`. Leave the console's
   env/secrets section empty — everything lives in `apphosting.yaml`. Server credentials = the App Hosting compute service account
   (`firebase.sdkAdminServiceAgent`). Earlier attempts (2026-10-22: CLI-created App Hosting backend, Firebase Hosting web frameworks)
-  were removed; `cs-masterclass.web.app` is disabled. Firebase Hosting's web-frameworks mode only supports Next ≤ 16.0.
+  were removed; `cs-masterclass.web.app` is disabled. The hosted.app address is in Firebase Auth → Authorized domains (added 2026-10-23;
+  add the custom domain there too once connected). Firebase Hosting's web-frameworks mode only supports Next ≤ 16.0.
 - Git: work on **`main`** (`site-build` is an old branch at the same commit as of 2026-10-23). Remote `origin` =
   https://github.com/F-ferdous/csmasterclass (**public** repo); `main` tracks `origin/main`. Commit and push only when the
   user asks. Never commit `.env*` (except `.env.example`) or `service-account*.json` — both are git-ignored.
@@ -67,6 +69,14 @@ must **never appear on the Home page**.
   Functions for signed-out visitors. Modules the server imports (`app/student-data.ts`) must not be marked `"use client"`.
 - SEO files: `app/robots.ts`, `app/sitemap.ts` (books from `getBooks()`; /about only once `ownerName` is set),
   `app/opengraph-image.tsx` (default share preview). All absolute URLs come from `site.url`.
+- **SEO (added 2026-10-23):** every public page exports `pageMetadata({ title, description, path })` from `lib/seo.ts` (canonical link,
+  Open Graph/Twitter card; setting openGraph drops the file-based OG image, so the helper names `/opengraph-image` itself).
+  Structured data via `<JsonLd>` (`components/seo/json-ld.tsx`) + builders in `lib/seo.ts`: Home = EducationalOrganization (centres
+  as Places) + WebSite + FAQPage; course pages = Course + Breadcrumb + FAQPage; /books = ItemList; book pages = Book(+Product with
+  BDT offers when priced). FAQ section component `components/sections/faq.tsx` (Home FAQs in `lib/content.ts` `faqs`).
+  Course guide pages `/o-level-computer-science` and `/a-level-computer-science` (content in `lib/courses.ts`, layout
+  `components/sections/course-page.tsx`, linked from Teaching + footer "Courses"). Login/forgot-password and placeholder About are noindex.
+  `site.googleVerification` (lib/site.ts) = optional Search Console HTML-tag code.
 
 ## Admin access
 
@@ -178,7 +188,11 @@ Fixed: dashboard called student Server Functions while signed out (500s); enroll
 (`lib/enrollments.ts` was `"use client"`); `/\host` open redirect in `safeNext`; SVG/odd file types now download instead of
 opening inline; cache-refresh actions were callable by anyone; bundle popup no longer covers `/order`; added robots, sitemap,
 share image. Next.js upgraded 16.4.0 → **16.4.2** (critical image-optimizer RCE + Server Actions DoS advisories).
-**Live on App Hosting since 2026-10-23** (see Run / build / deploy). Still to replace (needs the owner): owner name (About page says "Your Name"), contact email (hello@example.com), social links (point at youtube.com etc.),
+**Live on App Hosting since 2026-10-23** (see Run / build / deploy); custom domain cs-masterclass.com + SEO pass the same day.
+**SEO to-do (owner):** verify cs-masterclass.com in Google Search Console (Domain property, DNS TXT) and submit
+`https://cs-masterclass.com/sitemap.xml`; create a Google Business Profile; add cs-masterclass.com to Firebase Auth → Authorized
+domains; once HTTPS works on the domain, consider a 301 redirect from the hosted.app host (`next.config.ts` redirects with `has: host`).
+Real testimonials/results matter for rankings too (placeholders in `lib/content.ts`). Still to replace (needs the owner): owner name (About page says "Your Name"), contact email (hello@example.com), social links (point at youtube.com etc.),
 `site.whatsapp`, placeholder testimonials/results in `lib/content.ts`. 
 
 - **Settings** section in admin (WhatsApp number, payment instructions, prices). Orders is built (2026-10-14).

@@ -2,6 +2,8 @@
  * Teaching + success content. Replace the sample copy with your own story.
  */
 
+import type { Faq } from "./seo";
+
 /** `books: true` → the value is the number of published books, counted live. */
 export const stats = [
   { value: 10, suffix: "+", label: "Years in the classroom" },
@@ -155,3 +157,35 @@ export const bundle = {
     { kind: "hard" as const, bdt: 4500 },
   ],
 };
+
+/** Home page questions & answers (also published as FAQ structured data for Google). */
+export const faqs: Faq[] = [
+  {
+    q: "Which Computer Science courses do you teach?",
+    a: "Cambridge IGCSE and O Level Computer Science (0478 / 2210) for Class 9 and 10, and Cambridge International AS & A Level Computer Science (9618) for Class 11 and 12. Students following the Pearson Edexcel syllabus are welcome in the same batches.",
+  },
+  {
+    q: "Where are the Computer Science classes in Dhaka?",
+    a: "Classes are held in person at two coaching centres in Dhaka: Mirpur Academia in Mirpur and Uttara QED in Uttara. Each centre runs several batches for every class, and the live batch timetable with days and times is on the Teaching page.",
+  },
+  {
+    q: "How do I join a batch?",
+    a: "Register online on the Join page — choose your class, centre and batch. Your seat is confirmed by the teacher, and you then sign in to the student dashboard to see your timetable, homework, test results, attendance and study materials.",
+  },
+  {
+    q: "What is the difference between 0478 and 2210?",
+    a: "They are the same Computer Science syllabus with the same two exam papers. 0478 is the Cambridge IGCSE code and 2210 is the Cambridge O Level code, so the classes, notes and books cover both.",
+  },
+  {
+    q: "Which books do I need for O Level Computer Science?",
+    a: "Most students start Class 9 with The Complete Student Handbook and the Topical Question Bank, then add the Past Paper QP Booklet and the Mock Exam Papers in Class 10. Topical Notes & Practice Questions is an optional study companion, and AS students use the AS Computer Science Handbook.",
+  },
+  {
+    q: "Can I buy the books without joining the classes?",
+    a: "Yes. Every book can be ordered online as a softcopy or a printed copy, one title at a time or as the complete 0478 / 2210 bundle. After you order, you are contacted by phone or WhatsApp to confirm the order and arrange payment.",
+  },
+  {
+    q: "How are students and parents kept up to date?",
+    a: "Students get regular homework, topic tests and timed mock exams, and see every mark next to the class average on their dashboard. Parents receive a monthly report with attendance, test results and a comment from the teacher.",
+  },
+];

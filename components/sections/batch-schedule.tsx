@@ -16,9 +16,9 @@ const statusStyles: Record<BatchStatus, string> = {
   closed: "bg-paper-2 text-ink-soft",
 };
 
-/** Public batch timetable with class and centre filters. */
-export function BatchSchedule({ batches, locations }: { batches: Batch[]; locations: Location[] }) {
-  const firstClass = classLevels.find((c) => batches.some((b) => b.classLevel === c)) ?? "9";
+/** Public batch timetable with class and centre filters. `classes` limits the class tabs (e.g. a course page). */
+export function BatchSchedule({ batches, locations, classes = classLevels }: { batches: Batch[]; locations: Location[]; classes?: ClassLevel[] }) {
+  const firstClass = classes.find((c) => batches.some((b) => b.classLevel === c)) ?? classes[0];
   const [classLevel, setClassLevel] = useState<ClassLevel>(firstClass);
   const [locationId, setLocationId] = useState("all");
   const names = new Map(locations.map((l) => [l.id, l]));
@@ -29,8 +29,13 @@ export function BatchSchedule({ batches, locations }: { batches: Batch[]; locati
     <div id="schedule" className="scroll-mt-24">
       <LayoutGroup>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="grid grid-cols-4 gap-2 rounded-full border border-line p-1 sm:w-fit" role="tablist" aria-label="Class">
-            {classLevels.map((c) => {
+          <div
+            className="grid gap-2 rounded-full border border-line p-1 sm:w-fit"
+            style={{ gridTemplateColumns: `repeat(${classes.length}, minmax(0, 1fr))` }}
+            role="tablist"
+            aria-label="Class"
+          >
+            {classes.map((c) => {
               const count = batches.filter((b) => b.classLevel === c).length;
               return (
                 <button

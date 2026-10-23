@@ -5,11 +5,14 @@ import { SplitHeading } from "@/components/motion/split-heading";
 import { ButtonLink } from "@/components/ui/button";
 import { CtaBand } from "@/components/sections/cta-band";
 import { site } from "@/lib/site";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "About",
-  description: `About ${site.ownerName} — ${site.role}.`,
-};
+  description: `About ${site.ownerName} — ${site.role}, teaching O Level, IGCSE and A Level Computer Science in Dhaka.`,
+  path: "/about",
+  noindex: site.ownerName === "Your Name",
+});
 
 const values = [
   { title: "Clarity over cleverness", body: "The best explanation is the one a nervous beginner understands on first reading." },

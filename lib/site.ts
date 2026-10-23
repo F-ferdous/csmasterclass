@@ -16,8 +16,15 @@ export const site = {
    * e.g. "8801712345678". While empty, "Order" buttons go to the contact page.
    */
   whatsapp: "",
-  /** The live address (sitemap, share previews). Change to the custom domain once one is connected. */
-  url: "https://csmasterclass--cs-masterclass.us-east4.hosted.app",
+  /** The live address (canonical links, sitemap, share previews, structured data). */
+  url: "https://cs-masterclass.com",
+  /** City shown to search engines (local results). */
+  city: "Dhaka",
+  /**
+   * Google Search Console "HTML tag" verification code (only the content="…" value).
+   * Not needed when the domain is verified with a DNS TXT record.
+   */
+  googleVerification: "",
   socials: [
     { label: "YouTube", href: "https://youtube.com" },
     { label: "LinkedIn", href: "https://linkedin.com" },
@@ -39,6 +46,8 @@ export const site = {
   email: string;
   whatsapp: string;
   url: string;
+  city: string;
+  googleVerification: string;
   socials: readonly { label: string; href: string }[];
   nav: readonly { label: string; href: string }[];
 };
