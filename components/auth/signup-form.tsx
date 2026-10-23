@@ -9,6 +9,7 @@ import { registerStudent } from "@/app/student-actions";
 import type { Enrollment } from "@/lib/auth";
 import { classLevels } from "@/lib/coaching";
 import { phoneKey } from "@/lib/phone";
+import { checkForUpdate } from "@/components/layout/update-watcher";
 import type { ClassLevel } from "@/lib/types";
 import { useAuth } from "./auth-provider";
 import { useStudentSession } from "./student-session";
@@ -77,7 +78,10 @@ export function SignupForm() {
     setBusy(true);
     setError("");
     const result = await registerStudent({ name, email, phone, parentPhone, ...enrollment }).catch(
-      () => ({ ok: false as const, error: "Network error — check your connection and try again." }),
+      () => {
+        checkForUpdate();
+        return { ok: false as const, error: "Couldn't send — check your connection and try again. If this page was open for a while, refresh it first." };
+      },
     );
     setBusy(false);
     if (!result.ok) return setError(result.error);

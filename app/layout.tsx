@@ -3,6 +3,7 @@ import { Roboto } from "next/font/google";
 import { MotionProvider } from "@/components/motion/motion-provider";
 import { themeScript } from "@/lib/theme";
 import { Analytics } from "@/components/layout/analytics";
+import { UpdateWatcher } from "@/components/layout/update-watcher";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { StudentSessionProvider } from "@/components/auth/student-session";
 import { site } from "@/lib/site";
@@ -56,6 +57,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <StudentSessionProvider>{children}</StudentSessionProvider>
           </AuthProvider>
           <Analytics />
+          <UpdateWatcher />
         </MotionProvider>
       </body>
     </html>

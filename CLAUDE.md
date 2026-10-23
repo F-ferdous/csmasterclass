@@ -63,6 +63,11 @@ must **never appear on the Home page**.
   `components/admin/nav.ts`, `components/dashboard/student-nav.ts` (`soon: true` → placeholder page via `[section]`).
 - Admin UI primitives: `components/admin/ui.tsx` (PageHeader, Drawer/DrawerBody/DrawerFooter, Field, Segmented, buttons, EmptyState).
 - All clickable elements get `cursor: pointer` globally (base layer in globals.css).
+- **Deploy version skew (2026-10-24):** a tab opened before a deploy calls Server Functions the new build doesn't have → server logs
+  "Failed to find Server Action" (409) and the form shows a network error. `components/layout/update-watcher.tsx` (root layout) compares
+  the build it started on with `/api/version` (reads `.next/BUILD_ID`; empty in dev = watcher off) when the tab comes back into view:
+  reloads if nothing was typed (once per build), else shows a Refresh bar. Forms can call `checkForUpdate()` after a failed call.
+  Not using `next.config` `deploymentId` (needs one id shared by build and runtime; App Hosting gives none).
 - **Never use the bare `hidden` class with a breakpoint to show something** (`hidden lg:block`). Write `block max-lg:hidden`
   instead. Browser extensions inject `.hidden{display:none!important}`, which kept the dashboard sidebar hidden and squeezed the
   page into a 272px column on the owner's desktop (fixed 2026-10-23 across 23 places).
