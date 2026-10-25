@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { Mail, Clock, BookOpen } from "lucide-react";
+import { Mail, Clock, BookOpen, MessageCircle } from "lucide-react";
 import { PageHero } from "@/components/ui/page-hero";
 import { Reveal } from "@/components/motion/reveal";
 import { ContactForm } from "@/components/sections/contact-form";
+import { waLink } from "@/lib/phone";
 import { site } from "@/lib/site";
 import { pageMetadata } from "@/lib/seo";
 
@@ -25,6 +26,19 @@ export default function ContactPage() {
         <Reveal>
           <ul className="space-y-6">
             {[
+              ...(site.whatsapp
+                ? [
+                    {
+                      icon: MessageCircle,
+                      title: "WhatsApp",
+                      body: (
+                        <a href={waLink(site.whatsapp, "Hello! I have a question about CS Masterclass.")} target="_blank" rel="noreferrer" className="link-underline">
+                          {site.phone}
+                        </a>
+                      ),
+                    },
+                  ]
+                : []),
               { icon: Mail, title: "Email", body: <a href={`mailto:${site.email}`} className="link-underline">{site.email}</a> },
               { icon: Clock, title: "Response time", body: "Within two working days" },
               { icon: BookOpen, title: "Bulk & school orders", body: "Discounts available for classroom sets of any title." },

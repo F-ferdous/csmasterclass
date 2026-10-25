@@ -1,6 +1,7 @@
 import { cacheLife, cacheTag } from "next/cache";
-import { collection, getDocs, orderBy, query } from "firebase/firestore";
+import { collection, getDocs, orderBy, query, where } from "firebase/firestore";
 import { db, isFirebaseConfigured } from "./firebase";
+import { newestFirst, normalizeFreeResource, type FreeResource } from "./free-resources";
 import { normalizeBook } from "./normalize";
 import { defaultLocations, normalizeBatch, normalizeLocation, sortBatches } from "./coaching";
 import { seedBooks } from "./seed-books";
@@ -29,6 +30,23 @@ export async function getBooks(): Promise<Book[]> {
 export async function getBook(slug: string): Promise<Book | undefined> {
   const books = await getBooks();
   return books.find((b) => b.slug === slug);
+}
+
+/** Free resources shown on /free-resources (hidden ones excluded — the rules only allow reading visible ones). */
+export async function getFreeResources(): Promise<FreeResource[]> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("free-resources");
+
+  if (!isFirebaseConfigured) return [];
+
+  try {
+    const snap = await getDocs(query(collection(db(), "freeResources"), where("visible", "==", true)));
+    return snap.docs.map((d) => normalizeFreeResource(d.id, d.data())).sort(newestFirst);
+  } catch (err) {
+    console.error("[free-resources] Firestore read failed:", err);
+    return [];
+  }
 }
 
 /**

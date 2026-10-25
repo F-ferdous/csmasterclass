@@ -52,7 +52,7 @@ export function Navbar() {
         <nav className="container-x flex h-18 items-center justify-between" aria-label="Main">
           <Logo />
 
-          <ul className="flex max-md:hidden items-center gap-1 rounded-full border border-line bg-paper/60 p-1 backdrop-blur">
+          <ul className="flex max-lg:hidden items-center gap-1 rounded-full border border-line bg-paper/60 p-1 backdrop-blur">
             {site.nav.map((item) => (
               <li key={item.href} className="relative">
                 {isActive(item.href) && (
@@ -65,7 +65,7 @@ export function Navbar() {
                 <Link
                   href={item.href}
                   className={cn(
-                    "relative z-10 block rounded-full px-4 py-2 text-sm font-medium transition-colors",
+                    "relative z-10 block whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors",
                     isActive(item.href) ? "text-paper" : "text-ink-soft hover:text-ink",
                   )}
                 >
@@ -81,7 +81,7 @@ export function Navbar() {
             <button
               type="button"
               onClick={() => setOpenOn(open ? null : pathname)}
-              className="grid size-11 place-items-center rounded-full border border-line md:hidden"
+              className="grid size-11 place-items-center rounded-full border border-line lg:hidden"
               aria-label={open ? "Close menu" : "Open menu"}
               aria-expanded={open}
             >
@@ -94,7 +94,7 @@ export function Navbar() {
       <AnimatePresence>
         {open && (
           <motion.div
-            className="fixed inset-x-0 bottom-0 top-18 bg-paper md:hidden"
+            className="fixed inset-x-0 bottom-0 top-18 bg-paper lg:hidden"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

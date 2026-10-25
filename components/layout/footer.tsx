@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { waLink } from "@/lib/phone";
 import { site } from "@/lib/site";
 
 export function Footer() {
@@ -47,6 +48,13 @@ export function Footer() {
         <div>
           <p className="mb-4 font-mono text-xs uppercase tracking-[0.18em] opacity-60">Connect</p>
           <ul className="space-y-2.5">
+            {site.whatsapp && (
+              <li>
+                <a href={waLink(site.whatsapp)} target="_blank" rel="noreferrer" className="link-underline text-sm opacity-90 hover:opacity-100">
+                  WhatsApp {site.phone}
+                </a>
+              </li>
+            )}
             <li>
               <a href={`mailto:${site.email}`} className="link-underline text-sm opacity-90 hover:opacity-100">
                 {site.email}

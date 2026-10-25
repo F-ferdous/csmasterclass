@@ -123,6 +123,7 @@ must **never appear on the Home page**.
 | `announcements` | title, body, category, priority, audienceType/Values, pinned, status, expiresOn | published readable by signed-in users; admin write |
 | `payments` | tuition/book/admission/other, month, amount (BDT), method, reference, receivedOn | own + admin; admin write |
 | `resources` | study materials: title, description, kind (pdf/doc/image/video/link), url **or** file{path,name,size,contentType} (Storage `resources/{id}/…`), audienceType/Values, **audienceKeys** (`all`, `class:10`, `batch:<id>`, `location:<id>`; empty when hidden), visible | students read only docs whose audienceKeys match their profile (query must be `array-contains-any` of exactly their keys); admin write. Same check in `storage.rules` |
+| `freeResources` | free material for /free-resources: title, description, kind, url **or** file + **fileUrl** (download link, Storage `free-resources/{id}/…`), **classes** `["9","10"…]`, visible — helpers `lib/free-resources.ts` | public read of visible docs only (query must filter `visible == true`); admin write |
 | `books` | book catalogue (falls back to `lib/seed-books.ts` when empty); **forClasses** `{"9": "must"\|"optional"}` (missing → built-in plan by slug); **level** `o-level`\|`a-level` | public read, admin write |
 | `orders/{id}` | ref (`CS-YYMMDD-XXXX`), uid (linked student or ""), name, phone, email, address, note, `items[{slug ("bundle" for the bundle), title, kind, price, qty}]`, subtotal, deliveryFee, discount, status (new/confirmed/sent/delivered/cancelled), source (website/whatsapp/phone/in-person), paymentStatus, paymentMethod, paymentRef, paidOn, **paymentId** (matching `payments` doc, type book, `orderId`), adminNote — helpers in `lib/orders.ts` | public create of a well-formed new/unpaid/website order only (`validWebOrder`); own read; admin all |
 | `messages`, `subscribers` | contact form, newsletter | public create, admin read |
@@ -215,6 +216,24 @@ iPhone: notifications only work after "Add to Home Screen" (iOS 16.4+).
   only for status new + < 10 min old). Tested on emulator copy with a real FCM subscription (headless Chrome); batch-change path not
   driven through the UI.
 
+**Free Resources + WhatsApp (2026-10-25; tsc + eslint clean; rules deployed; public page tested on dev with a test doc written via
+firebase-admin — class pick, `?class=` links, popup per class/toggle, WhatsApp texts, no overflow at 375/768/1024. Admin UI tested
+signed in as the owner: upload PDF → "choose a class" check → publish → shows on public page at once (refresh tag) → link downloads
+(403 without token) → hide removes it from the page → delete removes doc + Storage file. Nothing left behind):**
+- Navbar/footer "Free Resources" → `/free-resources` (`app/(site)/free-resources/page.tsx`, `components/sections/free-resources.tsx`):
+  pick Class 9–12 (kept in `?class=`), see that class's items (ResourceCard, type filter), books/WhatsApp band below.
+  Data: `getFreeResources()` in `lib/data.ts` (cache tag `free-resources`, refreshed by `refreshFreeResources()` after admin edits).
+- Admin → Publishing → **Free resources** (`components/admin/free-resources-manager.tsx`): upload file / video / link, tick classes, hide/show, delete.
+- `components/sections/premium-popup.tsx`: opens 150 s into a visit to /free-resources (once per session, `premium-popup-seen`),
+  books for the chosen class (9–10 → O Level, 11–12 → A Level, toggle inside), "Premium services" list (`premiumServices` in
+  `lib/content.ts` — owner should confirm the wording), WhatsApp buttons. The bundle popup no longer shows on /free-resources.
+- WhatsApp **01917712336** = `site.whatsapp` / `site.phone`: floating button on public pages (`components/layout/whatsapp-button.tsx`, hidden on /order),
+  footer, contact page, batch timetable waiting-list links, Organization JSON-LD telephone, order success page.
+- Navbar link pills now show from **lg (1024px)** up; below that the menu button (5 links didn't fit at 768px).
+- Class switch / popup level swap don't use AnimatePresence `mode="wait"` exits (an exit that never finishes left the old list on screen).
+- Contact email = **csit.masterclass@gmail.com** (`site.email`, 2026-10-25).
+- Gotcha: a cached Firestore read that failed (e.g. before rules deploy) returns [] and stays cached for ~1 min (`cacheLife("minutes")`).
+
 ## Next up / open items
 
 **Pre-launch check 2026-10-22** (tsc, eslint, build, every page, register → confirm → sign-in → dashboards on emulators).
@@ -226,7 +245,7 @@ share image. Next.js upgraded 16.4.0 → **16.4.2** (critical image-optimizer RC
 **SEO to-do (owner):** verify cs-masterclass.com in Google Search Console (Domain property, DNS TXT) and submit
 `https://cs-masterclass.com/sitemap.xml`; create a Google Business Profile (cs-masterclass.com was added to Firebase Auth →
 Authorized domains on 2026-10-23 via the Identity Toolkit admin API); connect www.cs-masterclass.com in App Hosting (redirect to apex).
-Real testimonials/results matter for rankings too (placeholders in `lib/content.ts`). Still to replace (needs the owner): owner name (About page says "Your Name"), contact email (hello@example.com), social links (point at youtube.com etc.),
+Real testimonials/results matter for rankings too (placeholders in `lib/content.ts`). Still to replace (needs the owner): owner name (About page says "Your Name"), social links (point at youtube.com etc.),
 `site.whatsapp`, placeholder testimonials/results in `lib/content.ts`. 
 
 - **Settings** section in admin (WhatsApp number, payment instructions, prices). Orders is built (2026-10-14).
@@ -234,7 +253,6 @@ Real testimonials/results matter for rankings too (placeholders in `lib/content.
   `orderLink()` in `lib/pricing.ts` (`?book=slug&kind=hard` or `?bundle=soft`). Payment details aren't shown to customers yet
   (needs the bKash/Nagad numbers) — the confirm message says "we'll share the payment details".
 - Ideas not built: students seeing their orders in the dashboard (rules already allow own read); push/email alert to admin on a new order.
-- `site.whatsapp` in `lib/site.ts` is empty → the order success page hides its "Message us on WhatsApp" button. Ask the user for the number.
 - Payment instructions for students (bKash/Nagad numbers) not provided yet.
 - **AS Computer Science Handbook prices** — ask the user (soft/hard BDT); the book shows without a price until then.
 - Idea: recording a book payment in Admin → Payments could auto-tick that book in the student's "Books bought" (not built).

@@ -12,6 +12,12 @@ export async function refreshBooks(idToken: string) {
   updateTag("books");
 }
 
+/** Called by /admin after a free resource is added, changed, hidden or deleted. */
+export async function refreshFreeResources(idToken: string) {
+  await requireAdmin(idToken);
+  updateTag("free-resources");
+}
+
 /** Called by /admin after batches or locations change. */
 export async function refreshCoaching(idToken: string) {
   await requireAdmin(idToken);

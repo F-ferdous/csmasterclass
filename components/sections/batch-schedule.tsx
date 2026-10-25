@@ -5,6 +5,8 @@ import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import { ArrowUpRight, CalendarDays, MapPin, Users } from "lucide-react";
 import { useState } from "react";
 import { classLabels, classLevels, groupSessions, statusLabels } from "@/lib/coaching";
+import { waLink } from "@/lib/phone";
+import { site } from "@/lib/site";
 import type { Batch, BatchStatus, ClassLevel, Location } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ease } from "@/components/motion/reveal";
@@ -89,9 +91,14 @@ export function BatchSchedule({ batches, locations, classes = classLevels }: { b
                 className="rounded-3xl border border-dashed border-line p-8 text-center text-sm text-ink-soft md:col-span-2 lg:col-span-3"
               >
                 No batches listed here yet.{" "}
-                <Link href="/contact" className="font-medium text-ink underline underline-offset-4">
-                  Ask about upcoming batches
-                </Link>
+                <a
+                  href={waLink(site.whatsapp, "Hello! When do the next Computer Science batches start?")}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium text-ink underline underline-offset-4"
+                >
+                  Ask about upcoming batches on WhatsApp
+                </a>
               </motion.div>
             ) : (
               visible.map((b, i) => {
@@ -143,9 +150,14 @@ export function BatchSchedule({ batches, locations, classes = classLevels }: { b
                     {b.notes && <p className="mt-3 text-sm text-ink-soft">{b.notes}</p>}
                     <div className="mt-auto pt-6">
                       {full ? (
-                        <Link href="/contact" className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-line px-5 py-3 text-sm hover:border-ink">
-                          Join the waiting list
-                        </Link>
+                        <a
+                          href={waLink(site.whatsapp, `Hello! The ${b.name} batch (Class ${b.classLevel}${loc ? `, ${loc.name}` : ""}) is full — please add me to the waiting list.`)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-line px-5 py-3 text-sm hover:border-ink"
+                        >
+                          Join the waiting list on WhatsApp
+                        </a>
                       ) : (
                         <Link
                           href={`/signup?class=${b.classLevel}&location=${b.locationId}&batch=${b.id}`}

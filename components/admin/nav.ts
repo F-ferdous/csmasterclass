@@ -9,6 +9,7 @@ import {
   FileText,
   CreditCard,
   FolderOpen,
+  Gift,
   GraduationCap,
   Inbox,
   LayoutDashboard,
@@ -45,6 +46,7 @@ export const adminNav: NavGroup[] = [
     items: [
       { label: "Books", href: "/admin/books", icon: BookOpen, description: "Publish books, covers, prices and key numbers." },
       { label: "Resources", href: "/admin/resources", icon: FolderOpen, description: "Notes, worksheets, past papers and video links for classes, batches or centres." },
+      { label: "Free resources", href: "/admin/free-resources", icon: Gift, description: "Free material for website visitors, filed by class — shown on the public Free Resources page." },
       { label: "Announcements", href: "/admin/announcements", icon: Megaphone, description: "Notices for students — schedule changes, exams and results." },
     ],
   },

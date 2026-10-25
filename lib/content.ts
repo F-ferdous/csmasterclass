@@ -158,6 +158,13 @@ export const bundle = {
   ],
 };
 
+/** "Premium services" in the popup on /free-resources (visitors ask about them on WhatsApp). */
+export const premiumServices = [
+  "Regular classes at Mirpur Academia & Uttara QED",
+  "Mock exams marked with written feedback",
+  "One-to-one help with weak topics",
+];
+
 /** Home page questions & answers (also published as FAQ structured data for Google). */
 export const faqs: Faq[] = [
   {

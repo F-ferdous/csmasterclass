@@ -1,6 +1,7 @@
 import { Suspense, type ReactNode } from "react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
+import { WhatsAppButton } from "@/components/layout/whatsapp-button";
 import { BundlePopup } from "@/components/sections/bundle-popup";
 import { getBooks } from "@/lib/data";
 import { bundleBooks, bundleTiers } from "@/lib/pricing";
@@ -20,6 +21,7 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
         {children}
       </main>
       <Footer />
+      <WhatsAppButton />
       <Suspense fallback={null}>
         <BundlePromo />
       </Suspense>

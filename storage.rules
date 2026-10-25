@@ -29,6 +29,18 @@ service firebase.storage {
       allow delete: if isAdmin();
     }
 
+    // Free resources: free-resources/{resourceId}/{file}. Visitors open them with the download
+    // link saved on the freeResources doc (only readable while the doc is visible).
+    match /free-resources/{resourceId}/{file} {
+      allow read: if isAdmin();
+      allow create, update: if isAdmin()
+        && request.resource.size < 50 * 1024 * 1024
+        && (request.resource.contentType.matches('image/.*')
+          || request.resource.contentType.matches('application/(pdf|msword|vnd\\.openxmlformats-officedocument\\..*|vnd\\.ms-.*)')
+          || request.resource.contentType == 'text/plain');
+      allow delete: if isAdmin();
+    }
+
     // Homework answers: homework/{homeworkId}/{studentId}/{file}. Uploaded by the server for the
     // student; admins open them from the dashboard.
     match /homework/{homeworkId}/{uid}/{file} {

@@ -12,3 +12,4 @@ const withToken = async (run: (token: string) => Promise<void>) => {
 
 export const refreshBooks = () => withToken(actions.refreshBooks);
 export const refreshCoaching = () => withToken(actions.refreshCoaching);
+export const refreshFreeResources = () => withToken(actions.refreshFreeResources);

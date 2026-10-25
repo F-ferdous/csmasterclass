@@ -10,12 +10,15 @@ export const site = {
   role: "Computer Science Educator & Author",
   description:
     "A decade of teaching computer science — clear lessons, proven results, and books that make hard ideas feel simple.",
-  email: "hello@example.com",
+  email: "csit.masterclass@gmail.com",
   /**
-   * WhatsApp number for orders, in international format without "+" or spaces,
-   * e.g. "8801712345678". While empty, "Order" buttons go to the contact page.
+   * WhatsApp number (orders, questions, premium services), in international format without "+"
+   * or spaces, e.g. "8801712345678". Used by the floating WhatsApp button, footer, contact page
+   * and every "Message us on WhatsApp" link.
    */
-  whatsapp: "",
+  whatsapp: "8801917712336",
+  /** The same number the way people dial it in Bangladesh — shown on the site. */
+  phone: "01917712336",
   /** The live address (canonical links, sitemap, share previews, structured data). */
   url: "https://cs-masterclass.com",
   /** City shown to search engines (local results). */
@@ -36,6 +39,7 @@ export const site = {
     { label: "Teaching", href: "/teaching" },
     { label: "Success", href: "/success" },
     { label: "Books", href: "/books" },
+    { label: "Free Resources", href: "/free-resources" },
   ],
 } as {
   brand: string;
@@ -45,6 +49,7 @@ export const site = {
   description: string;
   email: string;
   whatsapp: string;
+  phone: string;
   url: string;
   city: string;
   googleVerification: string;

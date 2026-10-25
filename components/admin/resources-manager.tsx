@@ -240,7 +240,7 @@ export function ResourcesManager() {
   );
 }
 
-function IconAction({ children, label, onClick, danger }: { children: React.ReactNode; label: string; onClick: () => void; danger?: boolean }) {
+export function IconAction({ children, label, onClick, danger }: { children: React.ReactNode; label: string; onClick: () => void; danger?: boolean }) {
   return (
     <button type="button" onClick={onClick} aria-label={label} title={label} className={cn("grid size-9 place-items-center rounded-full hover:bg-paper-2", danger && "text-ember")}>
       {children}
@@ -248,7 +248,7 @@ function IconAction({ children, label, onClick, danger }: { children: React.Reac
   );
 }
 
-const safeFileName = (name: string) => name.replace(/[^\w.-]+/g, "-").replace(/-+/g, "-").slice(-80);
+export const safeFileName = (name: string) => name.replace(/[^\w.-]+/g, "-").replace(/-+/g, "-").slice(-80);
 
 function ResourceForm({
   resource,

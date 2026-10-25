@@ -100,6 +100,7 @@ export function organizationLd(locations: Location[]) {
     description:
       "Cambridge IGCSE / O Level (0478 / 2210) and AS & A Level (9618) Computer Science coaching in Dhaka, with study books, topical notes, question banks and mock exam papers.",
     ...(contactEmail() ? { email: contactEmail() } : {}),
+    ...(site.whatsapp ? { telephone: `+${site.whatsapp}` } : {}),
     ...(sameAs().length ? { sameAs: sameAs() } : {}),
     address: { "@type": "PostalAddress", addressLocality: site.city, addressCountry: "BD" },
     areaServed: { "@type": "City", name: site.city },

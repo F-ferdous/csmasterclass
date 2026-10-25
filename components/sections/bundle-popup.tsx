@@ -19,8 +19,10 @@ const DELAY_MS = 2500;
 /** A 400×300 bundle promotion that opens 2.5 s into a visit — once per browser session. */
 export function BundlePopup({ books, tiers }: { books: Book[]; tiers: Tier[] }) {
   const [open, setOpen] = useState(false);
-  // Not over the order form — people there are already choosing books.
-  const ordering = usePathname().startsWith("/order");
+  // Not over the order form — people there are already choosing books — nor on /free-resources,
+  // which has its own class-based offer (components/sections/premium-popup.tsx).
+  const pathname = usePathname();
+  const ordering = pathname.startsWith("/order") || pathname.startsWith("/free-resources");
   const closeRef = useRef<HTMLButtonElement>(null);
   const soft = tiers.find((t) => t.kind === "soft");
   const hard = tiers.find((t) => t.kind === "hard");

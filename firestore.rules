@@ -119,6 +119,13 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // Free material on the public /free-resources page. Anyone may read the visible ones
+    // (queries must filter visible == true); hidden ones are admin-only.
+    match /freeResources/{id} {
+      allow read: if resource.data.visible == true || isAdmin();
+      allow write: if isAdmin();
+    }
+
     match /payments/{id} {
       allow read, write: if isAdmin();
     }
