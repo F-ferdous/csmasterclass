@@ -15,10 +15,10 @@ import {
   audienceKeysFor,
   byNewest,
   contentTypeOf,
-  fileAccept,
+  resourceFileAccept,
   fileKind,
   formatBytes,
-  isAllowedType,
+  isAllowedResourceType,
   isWebUrl,
   kindLabels,
   kindPlural,
@@ -284,7 +284,7 @@ function ResourceForm({
   function pick(file: File | undefined) {
     if (!file) return;
     const type = contentTypeOf(file);
-    if (!isAllowedType(type)) return setError("Choose a PDF, Word/PowerPoint/Excel document, text file or image.");
+    if (!isAllowedResourceType(type)) return setError("Choose a PDF, Word/PowerPoint/Excel document, interactive HTML page, text file or image.");
     if (file.size > maxFileBytes) return setError(`That file is ${formatBytes(file.size)} — the limit is ${formatBytes(maxFileBytes)}. For bigger files, use a Google Drive link.`);
     setError("");
     setPicked(file);
@@ -388,7 +388,7 @@ function ResourceForm({
               {!saving && (
                 <label className="cursor-pointer text-sm underline underline-offset-4">
                   Change
-                  <input type="file" accept={fileAccept} className="sr-only" onChange={(e) => pick(e.target.files?.[0])} />
+                  <input type="file" accept={resourceFileAccept} className="sr-only" onChange={(e) => pick(e.target.files?.[0])} />
                 </label>
               )}
             </div>
@@ -409,8 +409,8 @@ function ResourceForm({
                 <CloudUpload className="size-6" aria-hidden />
               </motion.span>
               <span className="text-sm font-medium">Drop a file here, or click to choose</span>
-              <span className="text-xs text-ink-soft">PDF, Word, PowerPoint, Excel, text or image · up to {formatBytes(maxFileBytes)}</span>
-              <input type="file" accept={fileAccept} className="sr-only" onChange={(e) => pick(e.target.files?.[0])} />
+              <span className="text-xs text-ink-soft">PDF, Word, PowerPoint, Excel, HTML (interactive notes), text or image · up to {formatBytes(maxFileBytes)}</span>
+              <input type="file" accept={resourceFileAccept} className="sr-only" onChange={(e) => pick(e.target.files?.[0])} />
             </label>
           )
         ) : (

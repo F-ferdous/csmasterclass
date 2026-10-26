@@ -2,7 +2,7 @@ import type { Timestamp } from "firebase/firestore";
 import type { AudienceType } from "./announcements";
 import type { UserProfile } from "./types";
 
-export type ResourceKind = "pdf" | "doc" | "image" | "video" | "link";
+export type ResourceKind = "pdf" | "doc" | "image" | "video" | "link" | "html";
 export type ResourceSource = "file" | "video" | "link";
 
 export type ResourceFile = { path: string; name: string; size: number; contentType: string };
@@ -25,7 +25,7 @@ export type Resource = {
   updatedAt: Date | null;
 };
 
-export const resourceKinds: ResourceKind[] = ["pdf", "doc", "image", "video", "link"];
+export const resourceKinds: ResourceKind[] = ["html", "pdf", "doc", "image", "video", "link"];
 
 export const kindLabels: Record<ResourceKind, string> = {
   pdf: "PDF",
@@ -33,6 +33,7 @@ export const kindLabels: Record<ResourceKind, string> = {
   image: "Image",
   video: "Video",
   link: "Link",
+  html: "Interactive",
 };
 
 export const kindPlural: Record<ResourceKind, string> = {
@@ -41,6 +42,7 @@ export const kindPlural: Record<ResourceKind, string> = {
   image: "Images",
   video: "Videos",
   link: "Links",
+  html: "Interactive notes",
 };
 
 export const kindStyles: Record<ResourceKind, string> = {
@@ -49,11 +51,14 @@ export const kindStyles: Record<ResourceKind, string> = {
   image: "bg-gold/20 text-gold",
   video: "bg-forest/15 text-forest",
   link: "bg-paper-2 text-ink-soft",
+  html: "bg-series-1/15 text-series-1",
 };
 
 /** What the file picker accepts, and the most an upload may be (matches storage.rules). */
 export const fileAccept = ".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,image/*";
 export const maxFileBytes = 50 * 1024 * 1024;
+/** Study materials (admin → batches) may also be interactive HTML pages; students view them in a sandboxed pop-up. */
+export const resourceFileAccept = `${fileAccept},.html,.htm`;
 
 const typeByExtension: Record<string, string> = {
   pdf: "application/pdf",
@@ -64,6 +69,8 @@ const typeByExtension: Record<string, string> = {
   xls: "application/vnd.ms-excel",
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   txt: "text/plain",
+  html: "text/html",
+  htm: "text/html",
 };
 
 /** Browsers sometimes leave File.type empty (e.g. .doc on some systems), so fall back to the extension. */
@@ -80,7 +87,15 @@ export function isAllowedType(contentType: string) {
   );
 }
 
+export const isHtmlType = (contentType: string) => /^text\/html\b/.test(contentType);
+
+/** Study materials only — homework and free resources stay on isAllowedType. */
+export function isAllowedResourceType(contentType: string) {
+  return isAllowedType(contentType) || isHtmlType(contentType);
+}
+
 export function fileKind(contentType: string): ResourceKind {
+  if (isHtmlType(contentType)) return "html";
   if (contentType === "application/pdf") return "pdf";
   if (contentType.startsWith("image/")) return "image";
   return "doc";

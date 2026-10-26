@@ -234,6 +234,20 @@ signed in as the owner: upload PDF → "choose a class" check → publish → sh
 - Contact email = **csit.masterclass@gmail.com** (`site.email`, 2026-10-25).
 - Gotcha: a cached Firestore read that failed (e.g. before rules deploy) returns [] and stays cached for ~1 min (`cacheLife("minutes")`).
 
+**Interactive study pages (`study-resources/`, untracked in git; 2026-10-26):** standalone HTML notes for students (site colours,
+Roboto, light/dark, phone-friendly, answers shown when printed). Hand-written: `databases-as-level.html` (live SQL playground via
+sql.js from cdnjs + self-checking DDL/DML/INNER JOIN practice), `input-output-devices-olevel.html` (incl. sensor-based applications
+simulator). Built from `study-resources/_source/` (see its README; `python3 study-resources/_source/build.py`): computer architecture
+and Boolean logic (Class 9), arrays and scenario questions (Class 10, with an in-browser Cambridge pseudocode interpreter —
+`pseudo.js`), OS & translators (AS), processors & parallel, Boolean algebra (K-maps), translation software (A2). Content from
+`Book/` (O Level handbook, Hodder AS & A Level). The old PDFs in that folder show the previous design.
+- **HTML study materials (2026-10-26):** Admin → Resources accepts `.html` (kind `html`, "Interactive"; only there — homework and
+  free resources still refuse HTML). Stored like other files at Storage `resources/{id}/…` (storage.rules allows `text/html` on that
+  path only — **must be deployed**). Students open it in a full-screen pop-up (`HtmlViewer` in `components/dashboard/resource-card.tsx`,
+  iframe `sandbox="allow-scripts"`). `/api/student/files/resource/{id}` serves HTML only to iframes (`Sec-Fetch-Dest`), with a
+  `sandbox` CSP and an injected script/style that blocks select/copy/right-click/save/print (not editors) and hides `.copy` buttons.
+  Tested on the emulator copy: admin upload to a batch works; the student-side viewer was not yet driven end to end.
+
 ## Next up / open items
 
 **Pre-launch check 2026-10-22** (tsc, eslint, build, every page, register → confirm → sign-in → dashboards on emulators).

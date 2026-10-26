@@ -2,7 +2,7 @@
 
 import { getDownloadURL, ref } from "firebase/storage";
 import { AnimatePresence, motion } from "motion/react";
-import { CirclePlay, Download, ExternalLink, Eye, FileText, Image as ImageIcon, Link2, Loader2, X, type LucideIcon } from "lucide-react";
+import { CirclePlay, Download, ExternalLink, Eye, FileText, Image as ImageIcon, Link2, Loader2, MonitorPlay, X, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -17,6 +17,7 @@ export const kindIcons: Record<ResourceKind, LucideIcon> = {
   image: ImageIcon,
   video: CirclePlay,
   link: Link2,
+  html: MonitorPlay,
 };
 
 export function KindIcon({ kind, className }: { kind: ResourceKind; className?: string }) {
@@ -66,11 +67,12 @@ export function ResourceCard({ resource: r, preview = false, audience, fileHref 
   const fileUrl = r.file && fileHref ? fileHref : storageFile.url;
   const { error, loading } = storageFile;
   const [playing, setPlaying] = useState(false);
+  const [viewing, setViewing] = useState(false);
   const yt = r.kind === "video" ? youtubeId(r.url) : "";
   const href = r.file ? fileUrl : r.url;
 
   const action =
-    r.kind === "video" ? { label: "Watch", Icon: CirclePlay } : r.kind === "image" ? { label: "View", Icon: Eye } : r.kind === "doc" ? { label: "Download", Icon: Download } : r.kind === "pdf" ? { label: "Open", Icon: ExternalLink } : { label: "Open link", Icon: ExternalLink };
+    r.kind === "html" ? { label: "Open", Icon: MonitorPlay } : r.kind === "video" ? { label: "Watch", Icon: CirclePlay } : r.kind === "image" ? { label: "View", Icon: Eye } : r.kind === "doc" ? { label: "Download", Icon: Download } : r.kind === "pdf" ? { label: "Open", Icon: ExternalLink } : { label: "Open link", Icon: ExternalLink };
 
   const meta = r.file ? `${r.file.name}${r.file.size ? ` · ${formatBytes(r.file.size)}` : ""}` : linkHost(r.url);
 
@@ -117,10 +119,10 @@ export function ResourceCard({ resource: r, preview = false, audience, fileHref 
               {loading && <Loader2 className="size-4 animate-spin" aria-hidden />}
               <action.Icon className={cn("size-4", loading && "hidden")} aria-hidden /> {action.label}
             </span>
-          ) : yt ? (
+          ) : yt || r.kind === "html" ? (
             <button
               type="button"
-              onClick={() => setPlaying(true)}
+              onClick={() => (yt ? setPlaying(true) : setViewing(true))}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-forest px-4 py-2 text-sm font-semibold text-forest-ink transition-colors hover:bg-ink hover:text-paper"
             >
               <action.Icon className="size-4" aria-hidden /> {action.label}
@@ -139,7 +141,72 @@ export function ResourceCard({ resource: r, preview = false, audience, fileHref 
       </div>
 
       {yt && <VideoDialog open={playing} videoId={yt} title={r.title} url={r.url} onClose={() => setPlaying(false)} />}
+      {r.kind === "html" && href && <HtmlViewer open={viewing} src={href} title={r.title} onClose={() => setViewing(false)} />}
     </article>
+  );
+}
+
+/**
+ * Interactive HTML notes in a full-screen pop-up with a close button. The page runs in a sandboxed
+ * iframe (no access to the student's sign-in); there is no download or open-in-tab option.
+ */
+function HtmlViewer({ open, src, title, onClose }: { open: boolean; src: string; title: string; onClose: () => void }) {
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = overflow;
+      window.removeEventListener("keydown", onKey);
+      setLoaded(false);
+    };
+  }, [open, onClose]);
+
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className="fixed inset-0 z-[100] flex flex-col bg-ink"
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 24 }}
+          transition={{ duration: 0.25 }}
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <div className="flex items-center gap-3 px-4 py-2 text-white" style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }}>
+            <MonitorPlay className="size-5 shrink-0 opacity-70" aria-hidden />
+            <p className="min-w-0 flex-1 truncate font-display text-base select-none">{title}</p>
+            <button type="button" onClick={onClose} aria-label="Close" className="grid size-10 shrink-0 place-items-center rounded-full bg-white/10 transition-colors hover:bg-white/20">
+              <X className="size-5" />
+            </button>
+          </div>
+          <div className="relative flex-1 bg-paper">
+            {!loaded && (
+              <span className="absolute inset-0 grid place-items-center text-ink-soft">
+                <Loader2 className="size-6 animate-spin" aria-hidden />
+              </span>
+            )}
+            <iframe
+              src={src}
+              title={title}
+              sandbox="allow-scripts"
+              referrerPolicy="no-referrer"
+              onLoad={() => setLoaded(true)}
+              className="absolute inset-0 size-full border-0"
+            />
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>,
+    document.body,
   );
 }
 

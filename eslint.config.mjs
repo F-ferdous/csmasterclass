@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Standalone study pages and their build sources (plain browser scripts, not site code).
+    "study-resources/**",
   ]),
 ]);
 

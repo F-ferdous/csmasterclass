@@ -24,6 +24,7 @@ service firebase.storage {
       allow create, update: if isAdmin()
         && request.resource.size < 50 * 1024 * 1024
         && (request.resource.contentType.matches('image/.*')
+          || request.resource.contentType.matches('text/html.*')
           || request.resource.contentType.matches('application/(pdf|msword|vnd\\.openxmlformats-officedocument\\..*|vnd\\.ms-.*)')
           || request.resource.contentType == 'text/plain');
       allow delete: if isAdmin();
