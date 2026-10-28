@@ -241,12 +241,33 @@ simulator). Built from `study-resources/_source/` (see its README; `python3 stud
 and Boolean logic (Class 9), arrays and scenario questions (Class 10, with an in-browser Cambridge pseudocode interpreter —
 `pseudo.js`), OS & translators (AS), processors & parallel, Boolean algebra (K-maps), translation software (A2). Content from
 `Book/` (O Level handbook, Hodder AS & A Level). The old PDFs in that folder show the previous design.
+  Added 2026-10-27: Class 9 data transmission/error checking/encryption and data storage; Class 10 functions & procedures and a
+  logic-gates practice lab (random questions; builds on the Class 9 page); Class 11 algorithm design (auto flowchart from
+  pseudocode) and software development; Class 12 Chapter 17 security (RSA, BB84, TLS, SHA-256 signatures) and Chapter 20 further
+  programming (assembly addressing simulator, OOP playground, mini Prolog). 18 pages in total.
+  Added 2026-10-28: `boolean-logic-basics-olevel.html` (partial `pages/logic9-basics.html`) — a beginner version of Class 9 Boolean
+  logic (everyday examples per gate with switches + bulb, shape game, quick-fire, fill-in truth tables, 15 self-checking practice
+  questions from the handbook's Chapter 10 set). The original `boolean-logic-olevel.html` stays.
+  Added 2026-10-28: `scenario-pseudocode-practice-olevel.html` (partial `pages/scenario-qa.html`, answers in `sc/pq/s1-6.txt`) — the
+  owner's Word doc "Scenario Based Pseudocode Q&A" (copy in `Book/`): 6 scenarios, questions shown, answers hidden behind
+  Show/Hide (+ Show all), mark-yourself checklist and common mistakes. The doc's own answers had bugs (AND for out-of-range,
+  Total_Point/Total_Points, hard-coded name, no rounding), so the page has corrected answers, each run in pseudo.js with test data. 20 pages in total.
 - **HTML study materials (2026-10-26):** Admin → Resources accepts `.html` (kind `html`, "Interactive"; only there — homework and
   free resources still refuse HTML). Stored like other files at Storage `resources/{id}/…` (storage.rules allows `text/html` on that
-  path only — **must be deployed**). Students open it in a full-screen pop-up (`HtmlViewer` in `components/dashboard/resource-card.tsx`,
+  path only — deployed 2026-10-26). Students open it in a full-screen pop-up (`HtmlViewer` in `components/dashboard/resource-card.tsx`,
   iframe `sandbox="allow-scripts"`). `/api/student/files/resource/{id}` serves HTML only to iframes (`Sec-Fetch-Dest`), with a
   `sandbox` CSP and an injected script/style that blocks select/copy/right-click/save/print (not editors) and hides `.copy` buttons.
   Tested on the emulator copy: admin upload to a batch works; the student-side viewer was not yet driven end to end.
+
+**Promo video (2026-10-29, `motion/cs-masterclass-promo/`, untracked):** 32 s, 1920×1080, 30 fps MP4 made in the
+NullMotion / HyperFrames style (github.com/blixvip/NullMotion: one HTML page + a paused GSAP timeline, rendered frame by frame).
+`index.html` = the composition (open with `#play` to watch live), `render.cjs` = renderer (puppeteer-core + Chrome, WebCodecs +
+mp4-muxer, no ffmpeg needed; `--stills 1,8.6` for test frames), output `out/cs-masterclass-promo.mp4` (22 MB, no sound).
+Scenes: hook (binary → "CS" → Home headline), Picture/Explain/Practise (AND gate, pseudocode, bubble sort), stats, six books +
+bundle BDT 1,999, Mirpur Academia / Uttara QED, end card (cs-masterclass.com, WhatsApp). Covers in `assets/` from Storage.
+  On Home right after the hero: `components/sections/promo-video.tsx` (muted loop, plays when half on screen, pauses when scrolled
+  away or when the visitor pauses it; no autoplay with reduced motion). Web copy `public/videos/cs-masterclass-promo.mp4`
+  (3.5 Mbps, 12.6 MB: `node render.cjs --mbps 3.5 --out web.mp4`) + poster `public/videos/cs-masterclass-promo.jpg`.
 
 ## Next up / open items
 

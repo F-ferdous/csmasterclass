@@ -1,4 +1,5 @@
 import { Hero } from "@/components/sections/hero";
+import { PromoVideo } from "@/components/sections/promo-video";
 import { TopicMarquee } from "@/components/sections/marquee";
 import { StatsBand } from "@/components/sections/stats";
 import { Approach } from "@/components/sections/approach";
@@ -30,6 +31,7 @@ export default async function HomePage() {
     <>
       <JsonLd data={[organizationLd(locations), websiteLd()]} />
       <Hero />
+      <PromoVideo />
       <TopicMarquee />
       <StatsBand />
       <BookShowcase books={byFeature} />
