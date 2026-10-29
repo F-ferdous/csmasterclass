@@ -31,12 +31,14 @@ service firebase.storage {
     }
 
     // Free resources: free-resources/{resourceId}/{file}. Visitors open them with the download
-    // link saved on the freeResources doc (only readable while the doc is visible).
+    // link saved on the freeResources doc (only readable while the doc is visible). HTML pages have
+    // no saved link — the website serves them to its viewer (app/api/free-files).
     match /free-resources/{resourceId}/{file} {
       allow read: if isAdmin();
       allow create, update: if isAdmin()
         && request.resource.size < 50 * 1024 * 1024
         && (request.resource.contentType.matches('image/.*')
+          || request.resource.contentType.matches('text/html.*')
           || request.resource.contentType.matches('application/(pdf|msword|vnd\\.openxmlformats-officedocument\\..*|vnd\\.ms-.*)')
           || request.resource.contentType == 'text/plain');
       allow delete: if isAdmin();

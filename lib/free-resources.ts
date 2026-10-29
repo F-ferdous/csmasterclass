@@ -15,7 +15,7 @@ export type FreeResource = {
   /** Link resources only. */
   url: string;
   file: ResourceFile | null;
-  /** Download link for `file` (works for anyone who has it). */
+  /** Download link for `file` (works for anyone who has it). Empty for HTML pages — see freeFileUrl. */
   fileUrl: string;
   classes: ClassLevel[];
   /** Hidden items stay in the admin list but the public page doesn't show them. */
@@ -23,6 +23,9 @@ export type FreeResource = {
   createdAt: Date | null;
   updatedAt: Date | null;
 };
+
+/** Where visitors open an interactive HTML page (the server adds the viewer's protections). */
+export const freeFileUrl = (id: string) => `/api/free-files/${id}`;
 
 /** Which books a class is pointed to: Class 9–10 → O Level, 11–12 → AS & A Level. */
 export const levelForClass = (c: ClassLevel): BookLevel => (c === "11" || c === "12" ? "a-level" : "o-level");

@@ -13,14 +13,15 @@ import { storage } from "@/lib/firebase-client";
 import { newestFirst, normalizeFreeResource, type FreeResource } from "@/lib/free-resources";
 import {
   contentTypeOf,
-  fileAccept,
   fileKind,
   formatBytes,
-  isAllowedType,
+  isAllowedResourceType,
+  isHtmlType,
   isWebUrl,
   kindLabels,
   linkHost,
   maxFileBytes,
+  resourceFileAccept,
   storageErrorMessage,
   youtubeId,
   type ResourceKind,
@@ -75,6 +76,19 @@ export function FreeResourcesManager() {
   async function toggleVisible(r: FreeResource) {
     await updateDoc(doc(db(), "freeResources", r.id), { visible: !r.visible, updatedAt: serverTimestamp() });
     refreshFreeResources();
+  }
+
+  // HTML pages have no saved download link (visitors open them through the site's viewer), so ask Storage for one.
+  async function openItem(r: FreeResource) {
+    if (!r.file || r.fileUrl) return window.open(r.file ? r.fileUrl : r.url, "_blank", "noopener");
+    const tab = window.open("", "_blank");
+    try {
+      const url = await getDownloadURL(storageRef(storage(), r.file.path));
+      if (tab) tab.location.href = url;
+    } catch (err) {
+      tab?.close();
+      window.alert(storageErrorMessage(err));
+    }
   }
 
   async function remove(r: FreeResource) {
@@ -135,7 +149,7 @@ export function FreeResourcesManager() {
           <EmptyState
             icon={<Gift className="size-6" />}
             title="No free resources yet"
-            body="Upload a PDF, Word document or image, or add a YouTube or Google Drive link, and choose which classes it's for. It appears on the website's Free Resources page straight away."
+            body="Upload a PDF, Word document, image or interactive HTML page, or add a YouTube or Google Drive link, and choose which classes it's for. It appears on the website's Free Resources page straight away."
             action={newButton}
           />
         ) : shown.length === 0 ? (
@@ -168,7 +182,7 @@ export function FreeResourcesManager() {
                     </p>
                   </div>
                   <div className="flex gap-0.5 md:justify-end">
-                    <IconAction label={r.file ? "Open file" : "Open link"} onClick={() => window.open(r.file ? r.fileUrl : r.url, "_blank", "noopener")}>
+                    <IconAction label={r.file ? "Open file" : "Open link"} onClick={() => openItem(r)}>
                       <ExternalLink className="size-4" />
                     </IconAction>
                     <IconAction label="Edit" onClick={() => setEditing(r)}>
@@ -215,7 +229,7 @@ function FreeResourceForm({ resource, onDone }: { resource: FreeResource; onDone
   function pick(file: File | undefined) {
     if (!file) return;
     const type = contentTypeOf(file);
-    if (!isAllowedType(type)) return setError("Choose a PDF, Word/PowerPoint/Excel document, text file or image.");
+    if (!isAllowedResourceType(type)) return setError("Choose a PDF, Word/PowerPoint/Excel document, text file, image or HTML page.");
     if (file.size > maxFileBytes) return setError(`That file is ${formatBytes(file.size)} — the limit is ${formatBytes(maxFileBytes)}. For bigger files, use a Google Drive link.`);
     setError("");
     setPicked(file);
@@ -260,7 +274,7 @@ function FreeResourceForm({ resource, onDone }: { resource: FreeResource; onDone
         );
         task.current = null;
         file = { path, name: picked.name, size: picked.size, contentType };
-        fileUrl = await getDownloadURL(storageRef(storage(), path));
+        fileUrl = isHtmlType(contentType) ? "" : await getDownloadURL(storageRef(storage(), path));
       }
 
       const data = {
@@ -317,7 +331,7 @@ function FreeResourceForm({ resource, onDone }: { resource: FreeResource; onDone
               {!saving && (
                 <label className="cursor-pointer text-sm underline underline-offset-4">
                   Change
-                  <input type="file" accept={fileAccept} className="sr-only" onChange={(e) => pick(e.target.files?.[0])} />
+                  <input type="file" accept={resourceFileAccept} className="sr-only" onChange={(e) => pick(e.target.files?.[0])} />
                 </label>
               )}
             </div>
@@ -338,8 +352,8 @@ function FreeResourceForm({ resource, onDone }: { resource: FreeResource; onDone
                 <CloudUpload className="size-6" aria-hidden />
               </motion.span>
               <span className="text-sm font-medium">Drop a file here, or click to choose</span>
-              <span className="text-xs text-ink-soft">PDF, Word, PowerPoint, Excel, text or image · up to {formatBytes(maxFileBytes)}</span>
-              <input type="file" accept={fileAccept} className="sr-only" onChange={(e) => pick(e.target.files?.[0])} />
+              <span className="text-xs text-ink-soft">PDF, Word, PowerPoint, Excel, text, image or HTML · up to {formatBytes(maxFileBytes)}</span>
+              <input type="file" accept={resourceFileAccept} className="sr-only" onChange={(e) => pick(e.target.files?.[0])} />
             </label>
           )
         ) : (

@@ -123,7 +123,7 @@ must **never appear on the Home page**.
 | `announcements` | title, body, category, priority, audienceType/Values, pinned, status, expiresOn | published readable by signed-in users; admin write |
 | `payments` | tuition/book/admission/other, month, amount (BDT), method, reference, receivedOn | own + admin; admin write |
 | `resources` | study materials: title, description, kind (pdf/doc/image/video/link), url **or** file{path,name,size,contentType} (Storage `resources/{id}/…`), audienceType/Values, **audienceKeys** (`all`, `class:10`, `batch:<id>`, `location:<id>`; empty when hidden), visible | students read only docs whose audienceKeys match their profile (query must be `array-contains-any` of exactly their keys); admin write. Same check in `storage.rules` |
-| `freeResources` | free material for /free-resources: title, description, kind, url **or** file + **fileUrl** (download link, Storage `free-resources/{id}/…`), **classes** `["9","10"…]`, visible — helpers `lib/free-resources.ts` | public read of visible docs only (query must filter `visible == true`); admin write |
+| `freeResources` | free material for /free-resources: title, description, kind, url **or** file + **fileUrl** (download link, Storage `free-resources/{id}/…`; empty for HTML — served by `/api/free-files/{id}`), **classes** `["9","10"…]`, visible — helpers `lib/free-resources.ts` | public read of visible docs only (query must filter `visible == true`); admin write |
 | `books` | book catalogue (falls back to `lib/seed-books.ts` when empty); **forClasses** `{"9": "must"\|"optional"}` (missing → built-in plan by slug); **level** `o-level`\|`a-level` | public read, admin write |
 | `orders/{id}` | ref (`CS-YYMMDD-XXXX`), uid (linked student or ""), name, phone, email, address, note, `items[{slug ("bundle" for the bundle), title, kind, price, qty}]`, subtotal, deliveryFee, discount, status (new/confirmed/sent/delivered/cancelled), source (website/whatsapp/phone/in-person), paymentStatus, paymentMethod, paymentRef, paidOn, **paymentId** (matching `payments` doc, type book, `orderId`), adminNote — helpers in `lib/orders.ts` | public create of a well-formed new/unpaid/website order only (`validWebOrder`); own read; admin all |
 | `messages`, `subscribers` | contact form, newsletter | public create, admin read |
@@ -234,7 +234,7 @@ signed in as the owner: upload PDF → "choose a class" check → publish → sh
 - Contact email = **csit.masterclass@gmail.com** (`site.email`, 2026-10-25).
 - Gotcha: a cached Firestore read that failed (e.g. before rules deploy) returns [] and stays cached for ~1 min (`cacheLife("minutes")`).
 
-**Interactive study pages (`study-resources/`, untracked in git; 2026-10-26):** standalone HTML notes for students (site colours,
+**Interactive study pages (`study-resources/`, untracked in git; 2026-10-26; sorted 2026-10-29 into `study-resources/O Level/` (`*-olevel.html`) and `study-resources/A Level/` (AS + A2), build.py writes there; printable PDFs sit next to their pages, print layouts in `study-resources/_print/`):** standalone HTML notes for students (site colours,
 Roboto, light/dark, phone-friendly, answers shown when printed). Hand-written: `databases-as-level.html` (live SQL playground via
 sql.js from cdnjs + self-checking DDL/DML/INNER JOIN practice), `input-output-devices-olevel.html` (incl. sensor-based applications
 simulator). Built from `study-resources/_source/` (see its README; `python3 study-resources/_source/build.py`): computer architecture
@@ -252,12 +252,18 @@ and Boolean logic (Class 9), arrays and scenario questions (Class 10, with an in
   owner's Word doc "Scenario Based Pseudocode Q&A" (copy in `Book/`): 6 scenarios, questions shown, answers hidden behind
   Show/Hide (+ Show all), mark-yourself checklist and common mistakes. The doc's own answers had bugs (AND for out-of-range,
   Total_Point/Total_Points, hard-coded name, no rounding), so the page has corrected answers, each run in pseudo.js with test data. 20 pages in total.
-- **HTML study materials (2026-10-26):** Admin → Resources accepts `.html` (kind `html`, "Interactive"; only there — homework and
-  free resources still refuse HTML). Stored like other files at Storage `resources/{id}/…` (storage.rules allows `text/html` on that
+- **HTML study materials (2026-10-26):** Admin → Resources accepts `.html` (kind `html`, "Interactive"; homework still refuses HTML). Stored like other files at Storage `resources/{id}/…` (storage.rules allows `text/html` on that
   path only — deployed 2026-10-26). Students open it in a full-screen pop-up (`HtmlViewer` in `components/dashboard/resource-card.tsx`,
   iframe `sandbox="allow-scripts"`). `/api/student/files/resource/{id}` serves HTML only to iframes (`Sec-Fetch-Dest`), with a
   `sandbox` CSP and an injected script/style that blocks select/copy/right-click/save/print (not editors) and hides `.copy` buttons.
   Tested on the emulator copy: admin upload to a batch works; the student-side viewer was not yet driven end to end.
+- **HTML free resources (2026-10-29):** Admin → Free resources accepts `.html` too (storage.rules allows `text/html` on
+  `free-resources/` — deployed 2026-10-29). HTML items save **no `fileUrl`**; visitors open them in the same `HtmlViewer` via
+  `/api/free-files/{id}` (`freeFileUrl()`; visible docs only, iframe-only, same sandbox CSP + copy protection — shared in
+  `lib/server/html-viewer.ts`, also used by the student route). Admin "Open file" asks Storage for a link on demand.
+  Tested on dev with a firebase-admin test doc in headless Chrome: viewer loads, scripts run, sandbox blocks the parent, direct tab
+  → 403. The Claude browser pane blocks HTML in sandboxed iframes (ERR_BLOCKED_BY_CLIENT) — test viewers in real Chrome. Admin upload
+  form not driven (pane not signed in).
 
 **Promo video (2026-10-29, `motion/cs-masterclass-promo/`, untracked):** 32 s, 1920×1080, 30 fps MP4 made in the
 NullMotion / HyperFrames style (github.com/blixvip/NullMotion: one HTML page + a paused GSAP timeline, rendered frame by frame).

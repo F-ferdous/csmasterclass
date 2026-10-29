@@ -9,7 +9,7 @@ import { ResourceCard } from "@/components/dashboard/resource-card";
 import { ease } from "@/components/motion/reveal";
 import { bookLevelLabels } from "@/lib/books";
 import { classLabels, classLevels } from "@/lib/coaching";
-import { levelForClass, type FreeResource } from "@/lib/free-resources";
+import { freeFileUrl, levelForClass, type FreeResource } from "@/lib/free-resources";
 import { waLink } from "@/lib/phone";
 import { kindPlural, resourceKinds, type ResourceKind } from "@/lib/resources";
 import { site } from "@/lib/site";
@@ -154,7 +154,7 @@ function Browser({ resources, books, bundleTier, initial }: Props & { initial: C
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ duration: 0.45, delay: Math.min(i, 8) * 0.05, ease }}
                   >
-                    <ResourceCard resource={r} fileHref={r.fileUrl || undefined} />
+                    <ResourceCard resource={r} fileHref={r.kind === "html" ? freeFileUrl(r.id) : r.fileUrl || undefined} />
                   </motion.div>
                 ))}
               </AnimatePresence>

@@ -148,7 +148,7 @@ export function ResourceCard({ resource: r, preview = false, audience, fileHref 
 
 /**
  * Interactive HTML notes in a full-screen pop-up with a close button. The page runs in a sandboxed
- * iframe (no access to the student's sign-in); there is no download or open-in-tab option.
+ * iframe (no access to the visitor's sign-in); there is no download or open-in-tab option.
  */
 function HtmlViewer({ open, src, title, onClose }: { open: boolean; src: string; title: string; onClose: () => void }) {
   const [loaded, setLoaded] = useState(false);
@@ -181,10 +181,10 @@ function HtmlViewer({ open, src, title, onClose }: { open: boolean; src: string;
           aria-label={title}
           onContextMenu={(e) => e.preventDefault()}
         >
-          <div className="flex items-center gap-3 px-4 py-2 text-white" style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }}>
+          <div className="flex items-center gap-3 px-4 py-2 text-paper" style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }}>
             <MonitorPlay className="size-5 shrink-0 opacity-70" aria-hidden />
             <p className="min-w-0 flex-1 truncate font-display text-base select-none">{title}</p>
-            <button type="button" onClick={onClose} aria-label="Close" className="grid size-10 shrink-0 place-items-center rounded-full bg-white/10 transition-colors hover:bg-white/20">
+            <button type="button" onClick={onClose} aria-label="Close" className="grid size-10 shrink-0 place-items-center rounded-full bg-paper/10 transition-colors hover:bg-paper/20">
               <X className="size-5" />
             </button>
           </div>

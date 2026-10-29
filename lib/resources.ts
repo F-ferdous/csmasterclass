@@ -57,7 +57,7 @@ export const kindStyles: Record<ResourceKind, string> = {
 /** What the file picker accepts, and the most an upload may be (matches storage.rules). */
 export const fileAccept = ".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,image/*";
 export const maxFileBytes = 50 * 1024 * 1024;
-/** Study materials (admin → batches) may also be interactive HTML pages; students view them in a sandboxed pop-up. */
+/** Study materials and free resources may also be interactive HTML pages, shown in a sandboxed full-screen pop-up. */
 export const resourceFileAccept = `${fileAccept},.html,.htm`;
 
 const typeByExtension: Record<string, string> = {
@@ -89,7 +89,7 @@ export function isAllowedType(contentType: string) {
 
 export const isHtmlType = (contentType: string) => /^text\/html\b/.test(contentType);
 
-/** Study materials only — homework and free resources stay on isAllowedType. */
+/** Study materials and free resources — homework stays on isAllowedType. */
 export function isAllowedResourceType(contentType: string) {
   return isAllowedType(contentType) || isHtmlType(contentType);
 }
