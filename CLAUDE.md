@@ -211,9 +211,8 @@ iPhone: notifications only work after "Add to Home Screen" (iOS 16.4+).
   — browser prompt when offered, else instructions) and **Alerts** bell (`components/admin/notify-button.tsx`).
 - **Admin notifications**: `notifyAdmins()` in `lib/server/webpush.ts` (shared sender: allowed push hosts, one retry on network
   blips/429/5xx, removes gone endpoints, logs `[admin-push] "tag": sent n, failed n`). Messages in `lib/server/admin-alerts.ts`.
-  Fired with `after()` on: new registration (`registerStudent`), batch-change request (`requestBatchChange`), student order
-  (`placeMyOrder`), public web order (order form calls `notifyNewWebOrder(orderId)` — once per order via `orders.adminNotifiedAt`,
-  only for status new + < 10 min old). Tested on emulator copy with a real FCM subscription (headless Chrome); batch-change path not
+  Fired with `after()` on: new registration (`registerStudent`), batch-change request (`requestBatchChange`), book order
+  (`placeOrder` in `app/order-actions.ts`, once per order). Tested on emulator copy with a real FCM subscription (headless Chrome); batch-change path not
   driven through the UI.
 
 **Free Resources + WhatsApp (2026-10-25; tsc + eslint clean; rules deployed; public page tested on dev with a test doc written via
@@ -252,6 +251,24 @@ and Boolean logic (Class 9), arrays and scenario questions (Class 10, with an in
   owner's Word doc "Scenario Based Pseudocode Q&A" (copy in `Book/`): 6 scenarios, questions shown, answers hidden behind
   Show/Hide (+ Show all), mark-yourself checklist and common mistakes. The doc's own answers had bugs (AND for out-of-range,
   Total_Point/Total_Points, hard-coded name, no rounding), so the page has corrected answers, each run in pseudo.js with test data. 20 pages in total.
+  Added 2026-10-29 (Class 11, AS chapters 1–7 of the Hodder book; ch 5 already existed as os-translators): `information-representation-as-level.html`
+  (`inforep.html`: bit flipper, two's complement adder, KiB/KB, hex colour + memory dump, BCD clock + money adder, Bangla Unicode table,
+  pixel editor, file-size/ppi calculators, sound sampler with WebAudio playback, RLE text + image), `communication-as-level.html` (`comms.html`:
+  topology simulator — send packets, cut cables, hub vs switch, mesh re-routing; CSMA/CD, streaming buffer, IPv4/CIDR/subnet, IPv6 ::, URL, DNS),
+  `hardware-logic-as-level.html` (`hw.html`, modules logic: DRAM leak, PROM/EPROM/EEPROM, HDD fragmentation, optical, printer order games,
+  street light hysteresis, gates, book examples 3.1–3.3 + 9608/13 J15 Q6, scenario→expression checker, NAND builds),
+  `processor-fundamentals-as-level.html` (`cpu.html`: two-pass assembler + CPU simulator with RTN micro-steps, buses, trace table — runs the
+  book programs and 9608/32 J16 Q6 intruder alarm; flags, interrupts with priorities, shifts, masks), `security-integrity-as-level.html`
+  (`sec.html`: access rights, password crack time, firewall rules, phishing email hunt, DNS poisoning, validation form, modulo-11/ISBN-13,
+  checksum, parity bit/block locating the error, ARQ), `ethics-ownership-ai-as-level.html` (`ethics.html`: judge scenarios, Mikhail clauses,
+  Tom 9608/12 N17, licence finder, AI bias demo). All tested in headless Chrome (no errors, 375 px fits, dark mode).
+  Added 2026-10-29 (AS ch 10–11, so every AS chapter now has a page): `data-structures-as-level.html` (`datastruct.html`: records, arrays,
+  linear search + bubble sort steppers, “spot the bug” — the book prints the bubble sort with `swap ← FALSE` inside the FOR loop, which stops
+  after 2 passes unsorted — text files with EOF task, stack / circular queue / linked list simulators that reproduce Activities 10J–10L) and
+  `programming-as-level.html` (`programming.html`: sphere + Activity 11A, DIV/MOD + string functions, password Example 11.2, CASE calculator,
+  REPEAT vs WHILE stepper, procedures, BYVAL/BYREF, Fahrenheit function, 9608/21 N15 car-value task). `pseudo.js` gained records
+  (`TYPE … ENDTYPE`, `x.field`, arrays of records), `SQRT`, and `OTHERWISE` with or without a colon — old model answers/examples re-run
+  identically. 28 pages in total.
 - **HTML study materials (2026-10-26):** Admin → Resources accepts `.html` (kind `html`, "Interactive"; homework still refuses HTML). Stored like other files at Storage `resources/{id}/…` (storage.rules allows `text/html` on that
   path only — deployed 2026-10-26). Students open it in a full-screen pop-up (`HtmlViewer` in `components/dashboard/resource-card.tsx`,
   iframe `sandbox="allow-scripts"`). `/api/student/files/resource/{id}` serves HTML only to iframes (`Sec-Fetch-Dest`), with a
@@ -291,7 +308,13 @@ Real testimonials/results matter for rankings too (placeholders in `lib/content.
 
 - **Settings** section in admin (WhatsApp number, payment instructions, prices). Orders is built (2026-10-14).
 - Public **order form** `/order` (`components/books/order-form.tsx`): every "Order now"/"Get the bundle" button links to it via
-  `orderLink()` in `lib/pricing.ts` (`?book=slug&kind=hard` or `?bundle=soft`). Payment details aren't shown to customers yet
+  `orderLink()` in `lib/pricing.ts` (`?book=slug&kind=hard` or `?bundle=soft`). **Since 2026-11-03 every order (guest or signed-in
+  student) goes through the Server Function `placeOrder` (`app/order-actions.ts`)**: prices re-read from the catalogue, doc id = the
+  form's attempt id (a retry of the same order returns the saved one — no duplicates), 25 s timeout, offline check, and on connection
+  errors a "send this order on WhatsApp" button. Before this the browser wrote guest orders to Firestore itself, and on a bad
+  connection the button could spin forever (2026-11-03: a student said they ordered, but no order had ever arrived — 0 in Firestore). `placeMyOrder` and
+  `notifyNewWebOrder` were removed. The `validWebOrder` public-create rule in firestore.rules is now unused — remove it and deploy
+  the rules once this code is live. Payment details aren't shown to customers yet
   (needs the bKash/Nagad numbers) — the confirm message says "we'll share the payment details".
 - Ideas not built: students seeing their orders in the dashboard (rules already allow own read); push/email alert to admin on a new order.
 - Payment instructions for students (bKash/Nagad numbers) not provided yet.

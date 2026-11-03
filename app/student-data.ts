@@ -6,7 +6,6 @@ import { isExpired, normalizeAnnouncement, reaches, sortAnnouncements } from "@/
 import { normalizeMyAttendance } from "@/lib/attendance";
 import { byNewest as enrollmentsByNewest, normalizeEnrollment } from "@/lib/enrollments";
 import { normalizeHomework, normalizeSubmission } from "@/lib/homework";
-import { itemsSubtotal, newOrderRef, type OrderItem } from "@/lib/orders";
 import { normalizePastPapers, parsePaperCode } from "@/lib/past-papers";
 import { normalizePayment } from "@/lib/payments";
 import { phoneKey } from "@/lib/phone";
@@ -14,10 +13,10 @@ import { endpointKey } from "@/lib/push";
 import { byNewest, isAllowedType, isWebUrl, normalizeResource, studentAudienceKeys } from "@/lib/resources";
 import { normalizeSyllabusProgress, syllabusFor } from "@/lib/syllabus";
 import { normalizeMyResults } from "@/lib/tests";
-import type { ClassLevel, PriceKind } from "@/lib/types";
+import type { ClassLevel } from "@/lib/types";
 import { adminBucket, adminDb } from "@/lib/server/firebase-admin";
 import { requireStudent, studentDoc } from "@/lib/server/students";
-import { batchChangePayload, orderPayload } from "@/lib/server/admin-alerts";
+import { batchChangePayload } from "@/lib/server/admin-alerts";
 import { notifyAdmins } from "@/lib/server/webpush";
 
 // Everything a signed-in student reads or changes. Students have no Firebase login, so the browser
@@ -241,45 +240,3 @@ export async function removePushSubscription(endpoint: string): Promise<Saved> {
   });
 }
 
-// ── Orders ──────────────────────────────────────────────────────────
-
-const kinds: PriceKind[] = ["soft", "hard", "chapter", "combined"];
-
-/** A signed-in student's book order — like the public order form, but linked to their account. */
-export async function placeMyOrder(input: { items: OrderItem[]; address: string; note: string; email: string }): Promise<{ ok: true; ref: string } | { ok: false; error: string }> {
-  try {
-    const me = await requireStudent();
-    const items = (Array.isArray(input.items) ? input.items : []).slice(0, 20).map((i) => ({
-      slug: String(i.slug).slice(0, 100),
-      title: String(i.title).slice(0, 200),
-      kind: kinds.includes(i.kind) ? i.kind : "soft",
-      price: Math.max(0, Math.min(100000, Number(i.price) || 0)),
-      qty: Math.max(1, Math.min(99, Math.round(Number(i.qty) || 1))),
-    }));
-    if (!items.length) return { ok: false, error: "Choose at least one book." };
-    const ref = newOrderRef();
-    const order = {
-      ref,
-      uid: me.uid,
-      name: me.name,
-      phone: me.phone,
-      email: String(input.email ?? me.email).trim().slice(0, 200),
-      address: String(input.address ?? "").trim().slice(0, 500),
-      note: String(input.note ?? "").trim().slice(0, 1000),
-      items,
-      subtotal: itemsSubtotal(items),
-      deliveryFee: 0,
-      discount: 0,
-      status: "new",
-      source: "website",
-      paymentStatus: "unpaid",
-    };
-    await adminDb().collection("orders").add({ ...order, createdAt: FieldValue.serverTimestamp(), adminNotifiedAt: FieldValue.serverTimestamp() });
-    after(() => notifyAdmins(orderPayload(order)));
-    return { ok: true, ref };
-  } catch (err) {
-    if ((err as Error).message === "signed-out") return { ok: false, error: "Please sign in again." };
-    console.error("[student-data] placeMyOrder", err);
-    return { ok: false, error: "Something went wrong placing your order. Please try again." };
-  }
-}

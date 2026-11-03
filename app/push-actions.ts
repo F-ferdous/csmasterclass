@@ -1,12 +1,10 @@
 "use server";
 
 import { FieldValue } from "firebase-admin/firestore";
-import { after } from "next/server";
 import { endpointKey } from "@/lib/push";
-import { adminDb, isCredentialError } from "@/lib/server/firebase-admin";
+import { isCredentialError } from "@/lib/server/firebase-admin";
 import { requireAdmin } from "@/lib/server/require-admin";
-import { orderPayload } from "@/lib/server/admin-alerts";
-import { adminPushDoc, cleanSubscription, notifyAdmins, sendToSubscriptions, type PushPayload, type PushSub } from "@/lib/server/webpush";
+import { adminPushDoc, cleanSubscription, sendToSubscriptions, type PushPayload, type PushSub } from "@/lib/server/webpush";
 
 export type { PushPayload, PushSub };
 export type PushResult = { ok: true; sent: number; failed: number; gone: string[] } | { ok: false; error: string };
@@ -57,24 +55,3 @@ export async function removeAdminPush(idToken: string, endpoint: string): Promis
   return { ok: true };
 }
 
-/**
- * Called by the public order form right after it saves an order (the browser writes orders directly).
- * Only notifies for a real, brand-new website order, and only once — so it can't be used to send messages.
- */
-export async function notifyNewWebOrder(orderId: string): Promise<void> {
-  const id = String(orderId ?? "");
-  if (!/^[A-Za-z0-9]{10,40}$/.test(id)) return;
-  try {
-    const ref = adminDb().doc(`orders/${id}`);
-    const order = await adminDb().runTransaction(async (t) => {
-      const snap = await t.get(ref);
-      const created = snap.get("createdAt")?.toMillis?.() ?? 0;
-      if (!snap.exists || snap.get("status") !== "new" || snap.get("adminNotifiedAt") || Date.now() - created > 10 * 60 * 1000) return null;
-      t.update(ref, { adminNotifiedAt: FieldValue.serverTimestamp() });
-      return snap.data()!;
-    });
-    if (order) after(() => notifyAdmins(orderPayload(order)));
-  } catch (err) {
-    if (!isCredentialError(err)) console.error("[push-actions] notifyNewWebOrder", (err as Error).message);
-  }
-}

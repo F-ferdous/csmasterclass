@@ -2,19 +2,17 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { AnimatePresence, motion } from "motion/react";
 import { Check, Loader2, MessageCircle, Minus, Plus, ShoppingBag, Sparkles, Truck, X } from "lucide-react";
-import { useMemo, useState, type FormEvent } from "react";
-import { placeMyOrder } from "@/app/student-data";
-import { notifyNewWebOrder } from "@/app/push-actions";
+import { useMemo, useRef, useState, type FormEvent } from "react";
+import { placeOrder, type PlaceOrderResult } from "@/app/order-actions";
 import { useStudentSession } from "@/components/auth/student-session";
 import { BookCover } from "@/components/books/book-cover";
+import { checkForUpdate } from "@/components/layout/update-watcher";
 import { ease } from "@/components/motion/reveal";
 import { bookLevelLabels, bookLevels } from "@/lib/books";
 import { bundle } from "@/lib/content";
-import { db, isFirebaseConfigured } from "@/lib/firebase";
-import { BUNDLE_SLUG, itemLabel, itemsSubtotal, needsDelivery, newOrderRef, type OrderItem } from "@/lib/orders";
+import { BUNDLE_SLUG, itemLabel, itemsSubtotal, needsDelivery, orderSummary, type OrderItem } from "@/lib/orders";
 import { phoneKey, waLink } from "@/lib/phone";
 import { bundleTiers, formatBdt, priceLabels } from "@/lib/pricing";
 import { site } from "@/lib/site";
@@ -31,6 +29,26 @@ type Picks = Record<string, { kind: PriceKind; qty: number }>;
 
 const countable = (kind: PriceKind) => kind === "hard" || kind === "chapter";
 
+/** How long "Place order" waits before telling the visitor the connection is too slow. */
+const ORDER_TIMEOUT_MS = 25_000;
+
+const newAttemptId = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), (n) => n.toString(16).padStart(2, "0")).join("");
+
+/** The order as a WhatsApp message — the fallback when the website can't be reached. */
+function whatsAppOrder(items: OrderItem[], subtotal: number, c: { name: string; phone: string; address: string; note: string }) {
+  return [
+    "Hello! I'd like to order:",
+    orderSummary(items),
+    `Total: ${formatBdt(subtotal)}`,
+    `Name: ${c.name.trim()}`,
+    `Mobile: ${c.phone.trim()}`,
+    c.address.trim() && `Address: ${c.address.trim()}`,
+    c.note.trim() && `Note: ${c.note.trim()}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 export function OrderForm({ books }: { books: Book[] }) {
   const params = useSearchParams();
   const { student: profile } = useStudentSession();
@@ -38,7 +56,12 @@ export function OrderForm({ books }: { books: Book[] }) {
   const [picks, setPicks] = useState<Picks>(() => initialPicks(books, params));
   const [state, setState] = useState<"idle" | "sending" | "error">("idle");
   const [error, setError] = useState("");
+  // After a connection problem, offer to send the order on WhatsApp instead.
+  const [offerWhatsApp, setOfferWhatsApp] = useState(false);
   const [placed, setPlaced] = useState<{ ref: string; phone: string; items: OrderItem[]; subtotal: number } | null>(null);
+  // One id per version of the order: pressing "Place order" again unchanged retries the same order (no duplicates);
+  // any change to the books or details starts a new one.
+  const attempt = useRef("");
   // Fields the visitor has typed in; untouched ones fall back to a signed-in student's profile.
   const [typed, setTyped] = useState<Partial<Contact>>({});
   const contact: Contact = {
@@ -48,7 +71,10 @@ export function OrderForm({ books }: { books: Book[] }) {
     address: typed.address ?? "",
     note: typed.note ?? "",
   };
-  const setContact = (next: Contact) => setTyped(next);
+  const setContact = (next: Contact) => {
+    attempt.current = "";
+    setTyped(next);
+  };
 
   const items: OrderItem[] = Object.entries(picks).flatMap(([slug, { kind, qty }]) => {
     if (slug === BUNDLE_SLUG) {
@@ -63,6 +89,7 @@ export function OrderForm({ books }: { books: Book[] }) {
   const delivery = needsDelivery(items);
 
   function choose(slug: string, kind: PriceKind) {
+    attempt.current = "";
     setPicks((p) => {
       const next = { ...p };
       if (next[slug]?.kind === kind) delete next[slug];
@@ -70,62 +97,65 @@ export function OrderForm({ books }: { books: Book[] }) {
       return next;
     });
   }
-  const setQty = (slug: string, qty: number) => setPicks((p) => ({ ...p, [slug]: { ...p[slug], qty: Math.min(99, Math.max(1, qty)) } }));
-  const remove = (slug: string) =>
+  const setQty = (slug: string, qty: number) => {
+    attempt.current = "";
+    setPicks((p) => ({ ...p, [slug]: { ...p[slug], qty: Math.min(99, Math.max(1, qty)) } }));
+  };
+  const remove = (slug: string) => {
+    attempt.current = "";
     setPicks((p) => {
       const next = { ...p };
       delete next[slug];
       return next;
     });
+  };
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (state === "sending") return;
     if (items.length === 0) return fail("Choose at least one book.");
     if (!contact.name.trim()) return fail("Please enter your name.");
     if (!phoneKey(contact.phone)) return fail("Enter a Bangladeshi mobile number, e.g. 01712345678.");
     if (delivery && contact.address.trim().length < 8) return fail("Add the delivery address for printed books.");
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      return fail("You're offline. Check your internet connection and press Place order again.", true);
+    }
     setState("sending");
     setError("");
-    const ref = newOrderRef();
-    const order = {
-      ref,
-      uid: "",
-      name: contact.name.trim().slice(0, 100),
-      phone: contact.phone.trim().slice(0, 20),
-      email: contact.email.trim().slice(0, 200),
-      address: delivery ? contact.address.trim().slice(0, 500) : "",
-      note: contact.note.trim().slice(0, 1000),
-      items,
-      subtotal,
-      deliveryFee: 0,
-      discount: 0,
-      status: "new",
-      source: "website",
-      paymentStatus: "unpaid",
-    };
+    setOfferWhatsApp(false);
+    attempt.current ||= newAttemptId();
+    const call = placeOrder({
+      attemptId: attempt.current,
+      items: items.map(({ slug, kind, qty }) => ({ slug, kind, qty })),
+      name: contact.name,
+      phone: contact.phone,
+      email: contact.email,
+      address: delivery ? contact.address : "",
+      note: contact.note,
+    });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<"timeout">((resolve) => (timer = setTimeout(() => resolve("timeout"), ORDER_TIMEOUT_MS)));
+    let result: PlaceOrderResult | "timeout";
     try {
-      // Signed-in students order through the server, which links the order to their account.
-      if (profile) {
-        const result = await placeMyOrder({ items, address: order.address, note: order.note, email: order.email });
-        if (!result.ok) return fail(result.error);
-        setPlaced({ ref: result.ref, phone: profile.phone, items, subtotal });
-        window.scrollTo({ top: 0 });
-        return;
-      }
-      if (isFirebaseConfigured) {
-        const saved = await addDoc(collection(db(), "orders"), { ...order, createdAt: serverTimestamp() });
-        notifyNewWebOrder(saved.id).catch(() => {}); // admin notification — never blocks the order
-      }
-      setPlaced({ ref, phone: order.phone, items, subtotal });
-      window.scrollTo({ top: 0 });
+      result = await Promise.race([call, timeout]);
     } catch (err) {
       console.error(err);
-      fail("Something went wrong placing your order. Please try again in a moment.");
+      checkForUpdate(); // a tab left open across a deploy can't reach the new server
+      return fail("We couldn't reach the website — check your internet connection and press Place order again.", true);
+    } finally {
+      clearTimeout(timer);
     }
+    if (result === "timeout") {
+      return fail("Your connection is slow and the order isn't confirmed yet. Press Place order again — it won't be ordered twice.", true);
+    }
+    if (!result.ok) return fail(result.error, true);
+    setPlaced({ ref: result.ref, phone: profile?.phone || contact.phone.trim(), items: result.items, subtotal: result.subtotal });
+    window.scrollTo({ top: 0 });
   }
 
-  function fail(message: string) {
+  function fail(message: string, connection = false) {
     setError(message);
+    setOfferWhatsApp(connection && Boolean(site.whatsapp));
     setState("error");
   }
 
@@ -315,9 +345,19 @@ export function OrderForm({ books }: { books: Book[] }) {
           </label>
 
           {error && (
-            <p role="alert" className="text-sm text-ember">
-              {error}
-            </p>
+            <div role="alert" className="space-y-3">
+              <p className="text-sm text-ember">{error}</p>
+              {offerWhatsApp && (
+                <a
+                  href={waLink(site.whatsapp, whatsAppOrder(items, subtotal, contact))}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-line px-5 py-3 text-sm font-medium hover:border-ink"
+                >
+                  <MessageCircle className="size-4" aria-hidden /> Or send this order on WhatsApp
+                </a>
+              )}
+            </div>
           )}
 
           <button
