@@ -282,6 +282,19 @@ and Boolean logic (Class 9), arrays and scenario questions (Class 10, with an in
   → 403. The Claude browser pane blocks HTML in sandboxed iframes (ERR_BLOCKED_BY_CLIENT) — test viewers in real Chrome. Admin upload
   form not driven (pane not signed in).
 
+**Exam timetable page (2026-11-07):** `/exam-timetable` (`app/(site)/exam-timetable/page.tsx`, data `lib/exam-timetable.ts`, countdown
+chip `components/sections/exam-days-left.tsx`): Cambridge **June 2027** CS papers grouped O Level & IGCSE (2210/0478) / AS (9618) /
+A Level (9618) — subject, paper name, date, AM/PM session, duration; cards below 1280px, table above. Source = June 2027 **Zone 4**
+PDF (Bangladesh's zone — it lists Bangladesh Studies/Bengali; variants /12 /22 /32 /42, O Level AM, 9618 PM; Paper 4 = test-date
+window 19 May, time set by centre; Paper 4 duration 2h 30m from the syllabus, not the PDF). The owner's link was the March 2027
+Zone 4 PDF (India-only series, IGCSE 0478 only). Linked in footer "Courses" + sitemap, not the navbar. tsc + eslint clean; checked at
+375 / 1024 / 1440, no overflow. Update the rows for each new series.
+
+**Promo posters (2026-11-05/07, `motion/posters/<slug>/`, untracked):** one HTML page per poster rendered to PNG at 2× with headless Chrome
+(`"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --force-device-scale-factor=2 --window-size=1080,1350
+--virtual-time-budget=8000 --screenshot=<abs png> file://<abs html>`). `topical-question-bank/`: 4:5 poster + 9:16 story (1,000 → 700 BDT
+for students). `as-computer-science-handbook/`: 4:5 poster with the owner's four features (2,000 → 1,500 BDT). Covers copied from the promo assets.
+
 **Promo video (2026-10-29, `motion/cs-masterclass-promo/`, untracked):** 32 s, 1920×1080, 30 fps MP4 made in the
 NullMotion / HyperFrames style (github.com/blixvip/NullMotion: one HTML page + a paused GSAP timeline, rendered frame by frame).
 `index.html` = the composition (open with `#play` to watch live), `render.cjs` = renderer (puppeteer-core + Chrome, WebCodecs +
@@ -318,7 +331,7 @@ Real testimonials/results matter for rankings too (placeholders in `lib/content.
   (needs the bKash/Nagad numbers) — the confirm message says "we'll share the payment details".
 - Ideas not built: students seeing their orders in the dashboard (rules already allow own read); push/email alert to admin on a new order.
 - Payment instructions for students (bKash/Nagad numbers) not provided yet.
-- **AS Computer Science Handbook prices** — ask the user (soft/hard BDT); the book shows without a price until then.
+- **AS Computer Science Handbook prices** — poster (2026-11-07) says normal 2,000 BDT, CS Masterclass students 1,500; owner chose **not** to put it on the website yet (soft/hard not specified). The book shows without a price until they say so.
 - Idea: recording a book payment in Admin → Payments could auto-tick that book in the student's "Books bought" (not built).
 - Uploading files to Storage from the CLI: the firebase CLI login works (script used on 2026-10-14 got a token via
   firebase-tools' `lib/auth.js` `getAccessToken` and POSTed to the GCS JSON API). Admin → Books cover upload works in the browser.

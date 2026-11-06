@@ -32,6 +32,7 @@ export function Footer() {
             {[
               { label: "O Level & IGCSE CS (0478 / 2210)", href: "/o-level-computer-science" },
               { label: "AS & A Level CS (9618)", href: "/a-level-computer-science" },
+              { label: "Exam timetable 2027", href: "/exam-timetable" },
               { label: "Batch timings", href: "/teaching#schedule" },
               { label: "Register for a batch", href: "/signup" },
               { label: "Order books", href: "/order" },
