@@ -13,6 +13,7 @@ import { rosterFor } from "@/lib/roster";
 import { approxGrade, normalizeTest, percent, syncResults, testStats, testTypeLabels, testTypes, testTypeStyles, type Score, type Test } from "@/lib/tests";
 import type { Batch, Location, UserProfile } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { AudienceFilters, FilterSummary, useAudienceFilters } from "./audience-filters";
 import { notifyStudents } from "./notify";
 import { adminInput, Drawer, DrawerBody, DrawerFooter, drawerFormClass, EmptyState, ErrorText, Field, GhostButton, PageHeader, PrimaryButton, Segmented, Spinner } from "./ui";
 
@@ -26,8 +27,8 @@ export function TestsManager() {
   const [enrollments, setEnrollments] = useState<EnrollmentRecord[]>([]);
   const [editing, setEditing] = useState<Test | null>(null);
   const [openId, setOpenId] = useState("");
-  const [batchFilter, setBatchFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const filters = useAudienceFilters(batches);
 
   useEffect(() => {
     const d = db();
@@ -78,7 +79,7 @@ export function TestsManager() {
   }
 
   const q = search.trim().toLowerCase();
-  const visible = tests.filter((t) => (batchFilter === "all" || t.batchIds.includes(batchFilter)) && (!q || `${t.title} ${t.paper}`.toLowerCase().includes(q)));
+  const visible = tests.filter((t) => filters.matchesBatches(t.batchIds) && (!q || `${t.title} ${t.paper}`.toLowerCase().includes(q)));
   const newButton = (
     <PrimaryButton onClick={() => setEditing({ ...blank, date: localDate() })}>
       <Plus className="size-4" /> New test
@@ -94,28 +95,31 @@ export function TestsManager() {
       />
 
       {tests.length > 0 && (
-        <div className="mt-8 grid gap-3 sm:grid-cols-[1.4fr_1fr]">
+        <div className="mt-8 grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,3fr)]">
           <label className="relative">
             <span className="sr-only">Search tests</span>
             <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-ink-faint" aria-hidden />
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search tests" className={cn(adminInput, "pl-10")} />
           </label>
-          <select aria-label="Batch" value={batchFilter} onChange={(e) => setBatchFilter(e.target.value)} className={adminInput}>
-            <option value="all">All batches</option>
-            {batches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {batchLabel(b.id)}
-              </option>
-            ))}
-          </select>
+          <AudienceFilters f={filters} locations={locations} />
         </div>
+      )}
+      {tests.length > 0 && (filters.active || q) && (
+        <FilterSummary
+          shown={visible.length}
+          total={tests.length}
+          onClear={() => {
+            filters.clear();
+            setSearch("");
+          }}
+        />
       )}
 
       <div className="mt-5">
         {tests.length === 0 ? (
           <EmptyState icon={<ClipboardList className="size-6" />} title="No tests yet" body="Add a class test or mock exam, choose the batches that sat it, and enter everyone's marks." action={newButton} />
         ) : visible.length === 0 ? (
-          <EmptyState icon={<ClipboardList className="size-6" />} title="No matches" body="Try another batch or search." />
+          <EmptyState icon={<ClipboardList className="size-6" />} title="No matches" body="No tests for this class, centre or batch. Try other filters, or clear them." />
         ) : (
           <div className="overflow-hidden rounded-3xl border border-line">
             {visible.map((t) => {

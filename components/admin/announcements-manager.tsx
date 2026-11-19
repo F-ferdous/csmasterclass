@@ -22,6 +22,7 @@ import { normalizeProfile } from "@/lib/normalize";
 import type { Batch, Location, UserProfile } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { audienceError, AudiencePicker, audienceText, type Audience } from "./audience-picker";
+import { AudienceFilters, FilterSummary, useAudienceFilters } from "./audience-filters";
 import { notifyStudents } from "./notify";
 import { adminInput, Drawer, DrawerBody, DrawerFooter, drawerFormClass, EmptyState, ErrorText, Field, GhostButton, PageHeader, PrimaryButton, Segmented, Spinner } from "./ui";
 
@@ -50,6 +51,8 @@ export function AnnouncementsManager() {
   const [students, setStudents] = useState<UserProfile[]>([]);
   const [tab, setTab] = useState<Tab>("published");
   const [editing, setEditing] = useState<Announcement | null>(null);
+  const [hideEveryone, setHideEveryone] = useState(false);
+  const filters = useAudienceFilters(batches);
 
   useEffect(() => {
     const d = db();
@@ -76,7 +79,10 @@ export function AnnouncementsManager() {
   const audienceLabel = (a: Audience) => audienceText(a, batchById, locationById);
   const reachCount = (a: Audience) => students.filter((s) => reaches(a, s)).length;
 
-  const all = items ?? [];
+  const loaded = items ?? [];
+  // Class / centre / batch filters show what students there can see; tab counts follow the filters.
+  const all = loaded.filter((a) => (!hideEveryone || a.audienceType !== "all") && filters.reachesSelection(a));
+  const filtersOn = filters.active || hideEveryone;
   const inTab = (a: Announcement) =>
     tab === "all" ? true : tab === "draft" ? a.status === "draft" : tab === "expired" ? a.status === "published" && isExpired(a) : a.status === "published" && !isExpired(a);
   const counts: Record<Tab, number> = {
@@ -132,8 +138,33 @@ export function AnnouncementsManager() {
         ))}
       </div>
 
+      {loaded.length > 0 && (
+        <AudienceFilters
+          f={filters}
+          locations={locations}
+          className="mt-4"
+          extra={
+            <label className="flex items-center gap-2.5 rounded-xl border border-line px-3.5 py-2.5 text-sm">
+              <input type="checkbox" checked={hideEveryone} onChange={(e) => setHideEveryone(e.target.checked)} className="size-4 accent-[var(--forest)]" />
+              Hide &ldquo;Everyone&rdquo; notices
+            </label>
+          }
+        />
+      )}
+      {loaded.length > 0 && filtersOn && (
+        <FilterSummary
+          shown={all.length}
+          total={loaded.length}
+          note={filters.active ? "what students in this selection can see" : undefined}
+          onClear={() => {
+            filters.clear();
+            setHideEveryone(false);
+          }}
+        />
+      )}
+
       <div className="mt-6">
-        {all.length === 0 ? (
+        {loaded.length === 0 ? (
           <EmptyState
             icon={<Megaphone className="size-6" />}
             title="No announcements yet"
@@ -145,7 +176,7 @@ export function AnnouncementsManager() {
             }
           />
         ) : visible.length === 0 ? (
-          <EmptyState icon={<Megaphone className="size-6" />} title="Nothing here" body="No announcements in this view." />
+          <EmptyState icon={<Megaphone className="size-6" />} title="Nothing here" body={filtersOn ? "No announcements in this view for this selection. Try other filters, or clear them." : "No announcements in this view."} />
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">
             <AnimatePresence initial={false}>

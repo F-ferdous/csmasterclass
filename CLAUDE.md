@@ -188,7 +188,7 @@ log score), App & notifications (Profile; install card on Overview), Study mater
 **Admin dashboard (`/admin`):** Overview, Batches (per-day times, fee, seats, student counts),
 Locations, Students (search/filter/edit/admin toggle/books bought/CSV), Enrollments (confirm/waitlist/decline,
 capacity, bulk; confirming a new registration opens a **Send welcome** drawer — one-tap WhatsApp welcome to student and parent,
-text in `lib/welcome.ts`, editable per student in the drawer before sending (edits not saved), sent ticks in `enrollments.welcomedStudentAt/welcomedParentAt`, "Welcome" button on confirmed sign-ups), Attendance (take register, history grid, rates, CSV), Tests & marks (create test for batches,
+text in `lib/welcome.ts`, editable per student in the drawer before sending (edits not saved), sent ticks in `enrollments.welcomedStudentAt/welcomedParentAt`, "Welcome" button on confirmed sign-ups), Attendance (take register, history grid, rates, CSV), **Class / centre / batch filters** (2026-11-19, shared `components/admin/audience-filters.tsx`: `useAudienceFilters` + `AudienceFilters` + `FilterSummary`) on Tests & marks and Homework (item matches if one of its batches is in the selection; Homework also got search) and Announcements (what students there can see, tab counts follow, "Hide Everyone notices"), Tests & marks (create test for batches,
 enter marks with absent toggle, publish/unpublish), Homework (set for batches, submissions, mark + feedback, WhatsApp
 reminder), Revision (per-batch syllabus weak topics + past-paper practice table), Parent reports (month picker, per-student attendance/tests/fee summary,
 comment, one-tap WhatsApp send, sent tracking + "Next" flow),

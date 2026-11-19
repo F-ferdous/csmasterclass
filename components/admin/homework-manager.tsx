@@ -2,7 +2,7 @@
 
 import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { getDownloadURL, ref as storageRef } from "firebase/storage";
-import { ArrowLeft, BookMarked, Check, ExternalLink, FileText, Link2, MessageCircle, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, BookMarked, Search, Check, ExternalLink, FileText, Link2, MessageCircle, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { localDate, prettyDate } from "@/lib/attendance";
 import { normalizeBatch, normalizeLocation, sortBatches } from "@/lib/coaching";
@@ -26,6 +26,7 @@ import { isWebUrl, storageErrorMessage } from "@/lib/resources";
 import { rosterFor } from "@/lib/roster";
 import type { Batch, Location, UserProfile } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { AudienceFilters, FilterSummary, useAudienceFilters } from "./audience-filters";
 import { notifyStudents } from "./notify";
 import { adminInput, Drawer, DrawerBody, DrawerFooter, drawerFormClass, EmptyState, ErrorText, Field, GhostButton, PageHeader, PrimaryButton, Spinner } from "./ui";
 
@@ -40,6 +41,8 @@ export function HomeworkManager() {
   const [counts, setCounts] = useState<Record<string, { submitted: number; marked: number }>>({});
   const [editing, setEditing] = useState<Homework | null>(null);
   const [openId, setOpenId] = useState("");
+  const [search, setSearch] = useState("");
+  const filters = useAudienceFilters(batches);
 
   useEffect(() => {
     const d = db();
@@ -112,6 +115,8 @@ export function HomeworkManager() {
     );
   }
 
+  const q = search.trim().toLowerCase();
+  const visible = items.filter((h) => filters.matchesBatches(h.batchIds) && (!q || `${h.title} ${h.instructions}`.toLowerCase().includes(q)));
   const newButton = (
     <PrimaryButton onClick={() => setEditing({ ...blank })}>
       <Plus className="size-4" /> Set homework
@@ -121,12 +126,34 @@ export function HomeworkManager() {
   return (
     <div>
       <PageHeader title="Homework" description="Set work for your batches with a due date. Students submit a link (or a file once uploads are on); you mark it and add feedback." actions={newButton} />
-      <div className="mt-8">
+      {items.length > 0 && (
+        <div className="mt-8 grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,3fr)]">
+          <label className="relative">
+            <span className="sr-only">Search homework</span>
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-ink-faint" aria-hidden />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search homework" className={cn(adminInput, "pl-10")} />
+          </label>
+          <AudienceFilters f={filters} locations={locations} />
+        </div>
+      )}
+      {items.length > 0 && (filters.active || q) && (
+        <FilterSummary
+          shown={visible.length}
+          total={items.length}
+          onClear={() => {
+            filters.clear();
+            setSearch("");
+          }}
+        />
+      )}
+      <div className={items.length > 0 ? "mt-5" : "mt-8"}>
         {items.length === 0 ? (
           <EmptyState icon={<BookMarked className="size-6" />} title="No homework yet" body="Set your first task — students in the chosen batches see it on their dashboard straight away." action={newButton} />
+        ) : visible.length === 0 ? (
+          <EmptyState icon={<BookMarked className="size-6" />} title="No matches" body="No homework for this class, centre or batch. Try other filters, or clear them." />
         ) : (
           <div className="overflow-hidden rounded-3xl border border-line">
-            {items.map((h) => {
+            {visible.map((h) => {
               const total = rosterOf(h).length;
               const c = counts[h.id];
               const overdue = h.dueDate && h.dueDate < localDate();
