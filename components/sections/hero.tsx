@@ -95,8 +95,8 @@ export function Hero() {
             <Magnetic>
               <ButtonLink href="/books">Explore the books</ButtonLink>
             </Magnetic>
-            <ButtonLink href="/teaching" variant="ghost" arrow={false}>
-              How I teach
+            <ButtonLink href="/signup" variant="ghost" arrow={false}>
+              Join now
             </ButtonLink>
           </motion.div>
 

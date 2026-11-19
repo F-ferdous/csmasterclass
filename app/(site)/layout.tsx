@@ -1,10 +1,7 @@
-import { Suspense, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { WhatsAppButton } from "@/components/layout/whatsapp-button";
-import { BundlePopup } from "@/components/sections/bundle-popup";
-import { getBooks } from "@/lib/data";
-import { bundleBooks, bundleTiers } from "@/lib/pricing";
 
 /** Public website chrome: navbar + footer. */
 export default function SiteLayout({ children }: { children: ReactNode }) {
@@ -22,14 +19,7 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
       </main>
       <Footer />
       <WhatsAppButton />
-      <Suspense fallback={null}>
-        <BundlePromo />
-      </Suspense>
+      {/* Bundle pop-up (components/sections/bundle-popup.tsx) turned off 2026-11-19 at the owner's request. */}
     </>
   );
-}
-
-async function BundlePromo() {
-  const books = await getBooks();
-  return <BundlePopup books={bundleBooks(books)} tiers={bundleTiers(books)} />;
 }

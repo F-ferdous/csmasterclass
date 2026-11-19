@@ -29,7 +29,11 @@ export default function SuccessPage() {
 
       {/* Results */}
       <section className="container-x pb-20 sm:pb-28">
-        <Stagger className="grid gap-5 md:grid-cols-3">
+        <Stagger
+          className={`grid gap-5 ${
+            results.length >= 3 ? "md:grid-cols-3" : results.length === 2 ? "md:grid-cols-2" : "max-w-xl"
+          }`}
+        >
           {results.map((r) => (
             <StaggerItem key={r.label}>
               <div className="relative h-full overflow-hidden rounded-3xl bg-band p-8 text-band-ink sm:p-10">

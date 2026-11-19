@@ -11,7 +11,7 @@ must **never appear on the Home page**.
 
 ## Stack
 
-- **Next.js 16.4 (App Router, Turbopack)** with `cacheComponents: true` + `partialPrefetching: true`.
+- **Next.js 16.4.6 (App Router, Turbopack)** with `cacheComponents: true` + `partialPrefetching: true`.
   This is NOT the Next.js in training data — read `node_modules/next/dist/docs/` before using an API.
 - React 19, TypeScript, **Tailwind CSS v4** (tokens in `app/globals.css` `@theme inline`).
 - **Motion** (`motion/react`) for animation, **Lenis** smooth scroll, `lucide-react` icons.
@@ -130,7 +130,7 @@ must **never appear on the Home page**.
 
 ## Status — completed
 
-**Public site:** Home (motion hero with an animated CS "machine" — CPU chip + live pseudocode, logic gate, binary and bubble-sort cards in `components/sections/hero-machine.tsx`, velocity marquee, stats (1,200+ students, 90% A/A*, book count live), pinned horizontal book
+**Public site:** Home (motion hero with an animated CS "machine" — CPU chip + live pseudocode, logic gate, binary and bubble-sort cards in `components/sections/hero-machine.tsx`, velocity marquee, stats (400+ students, 90% A & A*, book count live — `stats` in `lib/content.ts`), pinned horizontal book
 showcase with O Level / AS & A Level toggle (`book.level`, editable in Admin → Books), bundle offer, Batches & locations
 (`batches-locations.tsx`: shared `CentreCards` + live `BatchSchedule`), pseudocode card, testimonials, newsletter), Teaching (coaching centres,
 live batch timetable from Firestore with "Join this batch", benefits, Edexcel note), Success, Books
@@ -146,7 +146,7 @@ or 1200 combined, Mock Exam 449/1399, **AS Computer Science Handbook (9618)** �
   Class 9 must = Handbook + Topical QB, optional = Topical Notes; Class 10 must = Handbook + Topical QB + Past Paper + Mock,
   optional = Topical Notes; Class 11 must = AS Handbook; Class 12 none (sees the whole library).
 - Admin → Students → student → **Books bought** ticks (`students.booksOwned`) hide those books from the student's suggestions.
-- **Bundle popup** (`components/sections/bundle-popup.tsx`, in `app/(site)/layout.tsx`): 400×300, opens 2.5 s into a visit on
+- **Bundle popup** — **turned off 2026-11-19** at the owner's request (removed from `app/(site)/layout.tsx`; component kept, re-add `<BundlePopup>` there to bring it back). Was: 400×300, opens 2.5 s into a visit on
   public pages, once per browser session (sessionStorage `bundle-popup-seen`); headline says "All five O Level books" + "O Level & IGCSE 0478 / 2210".
 
 **Student accounts (no Firebase Auth; changed 2026-10-23 at the owner's request — username = email, password = mobile number):**
@@ -269,6 +269,12 @@ and Boolean logic (Class 9), arrays and scenario questions (Class 10, with an in
   REPEAT vs WHILE stepper, procedures, BYVAL/BYREF, Fahrenheit function, 9608/21 N15 car-value task). `pseudo.js` gained records
   (`TYPE … ENDTYPE`, `x.field`, arrays of records), `SQRT`, and `OTHERWISE` with or without a colon — old model answers/examples re-run
   identically. 28 pages in total.
+  Added 2026-11-17 (A2 ch 18): `artificial-intelligence-a2.html` (`ai.html`: Dijkstra stepper with the book's working/final value boxes
+  (Fig 18.1, A→G = 17) + hotel network practice (end-of-chapter Q4b, C→Q = 515 s, self-checking), A* grid simulator on the book's 8×6
+  grid (g/h/f per square, Dijkstra h=0 comparison, editable blocks — finds a different route of the same cost 90 as the book),
+  supervised kNN / k-means / semi-supervised demos, Q-learning robot, ANN + face + pixel diagrams, XOR network trained by back
+  propagation, regression line fitting, 15 exam questions, terms + quiz). `window.__ai` exposes the solvers for automated checks.
+  Tested in headless Chrome: no errors, 375 px fits, dark mode. 29 pages in total.
 - **HTML study materials (2026-10-26):** Admin → Resources accepts `.html` (kind `html`, "Interactive"; homework still refuses HTML). Stored like other files at Storage `resources/{id}/…` (storage.rules allows `text/html` on that
   path only — deployed 2026-10-26). Students open it in a full-screen pop-up (`HtmlViewer` in `components/dashboard/resource-card.tsx`,
   iframe `sandbox="allow-scripts"`). `/api/student/files/resource/{id}` serves HTML only to iframes (`Sec-Fetch-Dest`), with a
@@ -311,12 +317,12 @@ bundle BDT 1,999, Mirpur Academia / Uttara QED, end card (cs-masterclass.com, Wh
 Fixed: dashboard called student Server Functions while signed out (500s); enrollment/seat status never loaded
 (`lib/enrollments.ts` was `"use client"`); `/\host` open redirect in `safeNext`; SVG/odd file types now download instead of
 opening inline; cache-refresh actions were callable by anyone; bundle popup no longer covers `/order`; added robots, sitemap,
-share image. Next.js upgraded 16.4.0 → **16.4.2** (critical image-optimizer RCE + Server Actions DoS advisories).
+share image. Next.js upgraded 16.4.0 → **16.4.2** (critical image-optimizer RCE + Server Actions DoS advisories). Upgraded again 2026-11-19 → **16.4.6** (security advisory shown by `next dev`; eslint-config-next too; tsc + build clean).
 **Live on App Hosting since 2026-10-23** (see Run / build / deploy); custom domain cs-masterclass.com + SEO pass the same day.
 **SEO to-do (owner):** verify cs-masterclass.com in Google Search Console (Domain property, DNS TXT) and submit
 `https://cs-masterclass.com/sitemap.xml`; create a Google Business Profile (cs-masterclass.com was added to Firebase Auth →
 Authorized domains on 2026-10-23 via the Identity Toolkit admin API); connect www.cs-masterclass.com in App Hosting (redirect to apex).
-Real testimonials/results matter for rankings too (placeholders in `lib/content.ts`). Still to replace (needs the owner): owner name (About page says "Your Name"), social links (point at youtube.com etc.),
+Real testimonials/results matter for rankings too (placeholders in `lib/content.ts`). `results` now holds only "240+ admitted to CS degrees" (1,800+ A*/A and 4.9/5 from 900+ reviews removed 2026-11-19 — too high for 400+ students); the 2021 "1,000 A* grades" milestone removed the same day). Still to replace (needs the owner): owner name (About page says "Your Name"), social links (point at youtube.com etc.),
 `site.whatsapp`, placeholder testimonials/results in `lib/content.ts`. 
 
 - **Settings** section in admin (WhatsApp number, payment instructions, prices). Orders is built (2026-10-14).

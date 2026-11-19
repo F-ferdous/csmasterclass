@@ -7,9 +7,9 @@ import type { Faq } from "./seo";
 /** `books: true` → the value is the number of published books, counted live. */
 export const stats = [
   { value: 10, suffix: "+", label: "Years in the classroom" },
-  { value: 1200, suffix: "+", label: "Students taught" },
+  { value: 400, suffix: "+", label: "Students taught" },
   { value: 6, suffix: "", label: "Books published", books: true },
-  { value: 90, suffix: "%", label: "A / A* in CAIE & Edexcel (Pearson) exams" },
+  { value: 90, suffix: "%", label: "A & A* in CAIE & Edexcel (Pearson) exams" },
 ];
 
 export const topics = [
@@ -110,15 +110,12 @@ export const milestones = [
   { year: "2015", title: "First classroom", body: "Began teaching computer science to a class of 28 curious teenagers." },
   { year: "2017", title: "Online cohorts", body: "Launched live online classes, reaching students across the country." },
   { year: "2019", title: "First book", body: "Published a beginner's guide that quickly became a classroom favourite." },
-  { year: "2021", title: "1,000 A* grades", body: "Celebrated a thousand top grades earned by former students." },
   { year: "2023", title: "Teacher training", body: "Started mentoring other teachers through workshops and school programmes." },
   { year: "2026", title: "The 0478 / 2210 series", body: "Published a five-book series: handbook, topical notes, question bank, past papers and mock exams." },
 ];
 
 export const results = [
-  { value: "1,800+", label: "A* / A grades achieved by former students" },
   { value: "240+", label: "Students admitted to CS & engineering degrees" },
-  { value: "4.9/5", label: "Average rating across 900+ course reviews" },
 ];
 
 export const recognitions = [
