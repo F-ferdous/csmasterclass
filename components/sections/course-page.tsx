@@ -38,7 +38,7 @@ export async function CoursePage({ course }: { course: Course }) {
           }),
           breadcrumbLd([
             { name: "Home", path: "/" },
-            { name: "Teaching", path: "/teaching" },
+            { name: "Batches", path: "/teaching" },
             { name: course.name, path: course.path },
           ]),
         ]}

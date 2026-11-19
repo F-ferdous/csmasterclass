@@ -132,8 +132,8 @@ must **never appear on the Home page**.
 
 **Public site:** Home (motion hero with an animated CS "machine" — CPU chip + live pseudocode, logic gate, binary and bubble-sort cards in `components/sections/hero-machine.tsx`, velocity marquee, stats (400+ students, 90% A & A*, book count live — `stats` in `lib/content.ts`), pinned horizontal book
 showcase with O Level / AS & A Level toggle (`book.level`, editable in Admin → Books), bundle offer, Batches & locations
-(`batches-locations.tsx`: shared `CentreCards` + live `BatchSchedule`), pseudocode card, testimonials, newsletter), Teaching (coaching centres,
-live batch timetable from Firestore with "Join this batch", benefits, Edexcel note), Success, Books
+(`batches-locations.tsx`: shared `CentreCards` + live `BatchSchedule`), pseudocode card, testimonials, newsletter), Teaching — **menu label "Batches"** since 2026-11-19, URL still `/teaching` (coaching centres,
+live batch timetable from Firestore with "Join this batch", benefits, Edexcel note), Success, Books (filters since 2026-11-19 in `components/books/book-grid.tsx`: level, "Books for Class N" (books ticked for that class, else that class's level), type, search; no exit animations — they got stuck)
 (+ detail page with 3D flip front/back covers, editions & prices, bundle), About (unlisted in nav/footer),
 Contact, 404. Favicon, dark/light toggle, Roboto font, pointer cursors.
 
@@ -192,11 +192,11 @@ text in `lib/welcome.ts`, editable per student in the drawer before sending (edi
 enter marks with absent toggle, publish/unpublish), Homework (set for batches, submissions, mark + feedback, WhatsApp
 reminder), Revision (per-batch syllabus weak topics + past-paper practice table), Parent reports (month picker, per-student attendance/tests/fee summary,
 comment, one-tap WhatsApp send, sent tracking + "Next" flow),
-Books, Resources (upload PDF/Word/PPT/Excel/image up to 50 MB, or video/other links; target class/batch/centre; hide/show), Announcements (targeted by class/batch/centre, pin, expiry, preview), Messages, Subscribers,
+Books, Resources (upload PDF/Word/PPT/Excel/image up to 50 MB, or video/other links; target class/batch/centre; hide/show; **filters by class / centre / batch** (2026-11-19) = what students there can see, incl. "Everyone" items unless "Hide Everyone items" is ticked), Announcements (targeted by class/batch/centre, pin, expiry, preview), Messages, Subscribers,
 Orders (`orders-manager.tsx`: Open/New/Confirmed/Sent/Delivered/Cancelled tabs, stats, search, CSV; drawer with status, customer,
 student link (auto-suggested by phone), items editor, delivery charge + discount, mark paid → writes/updates/deletes the matching
 book payment, Delivered + linked student → ticks `booksOwned`, WhatsApp confirm/paid/sent messages; New order for WhatsApp/phone/
-in-person; sidebar badge = new orders), Payments (monthly dues, record payments, WhatsApp reminders, WhatsApp receipts to parents after recording + send icon in ledger, ledger, CSV), Reports (KPIs + charts).
+in-person; sidebar badge = new orders), Payments (**Fee sheet** tab, first — `components/admin/fee-sheet.tsx`, added 2026-11-19: pick class + batch → table of students with the month, an editable fee box (default 3,500 BDT Class 9–10 / 4,500 Class 11–12, `defaultMonthlyFee()` in `lib/payments.ts` — not the batch fee) and a Paid switch that writes / deletes `payments/tuition-YYYY-MM-uid` (`sheetPaymentId`); students paid via Record payment show locked as paid; WhatsApp icon → drawer with editable receipt/reminder text (`feeMessage()`), send to parent or student. Tested on the emulator copy; monthly dues, record payments, WhatsApp reminders, WhatsApp receipts to parents after recording + send icon in ledger, ledger, CSV), Reports (KPIs + charts).
 Soon: Settings.
 
 **Installable app + push (PWA):** `app/manifest.ts` (start_url /dashboard, icons in `public/icons/` made from `app/icon.svg`

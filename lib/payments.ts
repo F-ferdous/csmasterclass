@@ -137,3 +137,50 @@ export function receiptMessage(
   lines.push(``, `Thank you.`, `— CS Masterclass`);
   return lines.join("\n");
 }
+
+/** Default monthly tuition on the fee sheet: Class 9–10 (O Level) 3,500 BDT, Class 11–12 (AS & A Level) 4,500 BDT. */
+export function defaultMonthlyFee(classLevel: ClassLevel | "") {
+  return classLevel === "11" || classLevel === "12" ? 4500 : 3500;
+}
+
+/** payments/{id} written by the fee sheet's Paid switch — one per student and month, so the switch can undo it. */
+export const sheetPaymentId = (month: string, uid: string) => `tuition-${month}-${uid}`;
+
+/** WhatsApp text for a parent from the fee sheet: a receipt when paid, otherwise a reminder. */
+export function feeMessage({
+  studentName,
+  batch,
+  month,
+  amount,
+  paid,
+}: {
+  studentName: string;
+  batch?: { classLevel: string; name: string };
+  month: string;
+  amount: number;
+  paid: boolean;
+}) {
+  const student = `${studentName || "your child"}${batch ? ` (Class ${batch.classLevel} · ${batch.name})` : ""}`;
+  const lines = paid
+    ? [
+        `Dear Parent,`,
+        ``,
+        `We have received the tuition fee for ${student} for ${monthLabel(month)}.`,
+        ``,
+        `Amount: ${bdt(amount)}`,
+        ``,
+        `Thank you.`,
+        `— CS Masterclass`,
+      ]
+    : [
+        `Dear Parent,`,
+        ``,
+        `This is a friendly reminder that the tuition fee for ${student} for ${monthLabel(month)} is due.`,
+        ``,
+        `Amount: ${bdt(amount)}`,
+        ``,
+        `Please ignore this message if you have already paid. Thank you.`,
+        `— CS Masterclass`,
+      ];
+  return lines.join("\n");
+}

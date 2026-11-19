@@ -32,11 +32,12 @@ import {
 import { priceLabels } from "@/lib/pricing";
 import { bundle } from "@/lib/content";
 import { rosterFor } from "@/lib/roster";
+import { FeeSheet } from "./fee-sheet";
 import type { Batch, ClassLevel, UserProfile } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { adminInput, Drawer, DrawerBody, DrawerFooter, drawerFormClass, EmptyState, ErrorText, Field, GhostButton, PageHeader, PrimaryButton, Segmented, Spinner } from "./ui";
 
-type View = "dues" | "ledger";
+type View = "sheet" | "dues" | "ledger";
 type DueRow = { user: UserProfile; batch: Batch; status: DueStatus; paid: number; remaining: number };
 
 /** That month's tuition status for a student — added to receipts so parents see what's left. */
@@ -56,7 +57,7 @@ export function PaymentsManager() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [enrollments, setEnrollments] = useState<EnrollmentRecord[]>([]);
   const [month, setMonth] = useState(() => thisMonth());
-  const [view, setView] = useState<View>("dues");
+  const [view, setView] = useState<View>("sheet");
   const [editing, setEditing] = useState<Partial<Payment> | null>(null);
 
   // Dues filters
@@ -183,6 +184,7 @@ export function PaymentsManager() {
       <div className="mt-6 flex gap-1 rounded-full border border-line p-1 sm:w-fit">
         {(
           [
+            ["sheet", "Fee sheet"],
             ["dues", "Tuition dues"],
             ["ledger", "All payments"],
           ] as [View, string][]
@@ -199,6 +201,12 @@ export function PaymentsManager() {
         ))}
       </div>
 
+      {view === "sheet" ? (
+        <div className="mt-4">
+          <FeeSheet month={month} batches={batches} users={users} enrollments={enrollments} payments={all} />
+        </div>
+      ) : (
+      <>
       {/* Filters */}
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.4fr_repeat(3,minmax(0,1fr))]">
         <label className="relative">
@@ -400,6 +408,8 @@ export function PaymentsManager() {
           </div>
         )}
       </div>
+      </>
+      )}
 
       <Drawer open={Boolean(editing)} title={editing?.id ? "Edit payment" : "Record payment"} onClose={() => setEditing(null)}>
         {editing && (

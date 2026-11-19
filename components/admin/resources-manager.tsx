@@ -7,7 +7,7 @@ import { CirclePlay, CloudUpload, ExternalLink, Eye, EyeOff, FolderOpen, Link2, 
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { KindIcon, ResourceCard } from "@/components/dashboard/resource-card";
 import { reaches } from "@/lib/announcements";
-import { normalizeBatch, normalizeLocation, sortBatches } from "@/lib/coaching";
+import { classLevels, normalizeBatch, normalizeLocation, sortBatches } from "@/lib/coaching";
 import { db } from "@/lib/firebase";
 import { storage } from "@/lib/firebase-client";
 import { normalizeProfile } from "@/lib/normalize";
@@ -32,7 +32,7 @@ import {
   type ResourceKind,
   type ResourceSource,
 } from "@/lib/resources";
-import type { Batch, Location, UserProfile } from "@/lib/types";
+import type { Batch, ClassLevel, Location, UserProfile } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { audienceError, AudiencePicker, audienceText, type Audience } from "./audience-picker";
 import { notifyStudents } from "./notify";
@@ -77,6 +77,10 @@ export function ResourcesManager() {
   const [students, setStudents] = useState<UserProfile[]>([]);
   const [kind, setKind] = useState<ResourceKind | "all">("all");
   const [search, setSearch] = useState("");
+  const [classFilter, setClassFilter] = useState<ClassLevel | "all">("all");
+  const [batchFilter, setBatchFilter] = useState("all");
+  const [locationFilter, setLocationFilter] = useState("all");
+  const [hideEveryone, setHideEveryone] = useState(false);
   const [editing, setEditing] = useState<Resource | null>(null);
 
   useEffect(() => {
@@ -101,8 +105,40 @@ export function ResourcesManager() {
 
   const all = items ?? [];
   const q = search.trim().toLowerCase();
+
+  // Class / batch / centre filters show what students there would see: one "profile" per batch in range
+  // (plus the class or centre on its own), and a resource matches if it reaches any of them.
+  const filterBatches = batches.filter(
+    (b) =>
+      (classFilter === "all" || b.classLevel === classFilter) &&
+      (locationFilter === "all" || b.locationId === locationFilter) &&
+      (batchFilter === "all" || b.id === batchFilter),
+  );
+  const audienceFiltered = classFilter !== "all" || batchFilter !== "all" || locationFilter !== "all";
+  const profiles = [
+    ...filterBatches.map((b) => ({ classLevel: b.classLevel, batchId: b.id, locationId: b.locationId })),
+    ...(batchFilter === "all" ? [{ classLevel: classFilter === "all" ? "" : classFilter, batchId: "", locationId: locationFilter === "all" ? "" : locationFilter }] : []),
+  ] as Pick<UserProfile, "classLevel" | "batchId" | "locationId">[];
+  const inAudience = (r: Resource) =>
+    (!hideEveryone || r.audienceType !== "all") && (!audienceFiltered || profiles.some((p) => reaches(r, p)));
+  const filtersOn = audienceFiltered || hideEveryone || kind !== "all" || q !== "";
+  function clearFilters() {
+    setClassFilter("all");
+    setBatchFilter("all");
+    setLocationFilter("all");
+    setHideEveryone(false);
+    setKind("all");
+    setSearch("");
+  }
+
   const visible = all.filter(
-    (r) => (kind === "all" || r.kind === kind) && (!q || [r.title, r.description, r.file?.name ?? "", audienceLabel(r)].some((v) => v.toLowerCase().includes(q))),
+    (r) =>
+      (kind === "all" || r.kind === kind) &&
+      inAudience(r) &&
+      (!q || [r.title, r.description, r.file?.name ?? "", audienceLabel(r)].some((v) => v.toLowerCase().includes(q))),
+  );
+  const batchOptions = batches.filter(
+    (b) => (classFilter === "all" || b.classLevel === classFilter) && (locationFilter === "all" || b.locationId === locationFilter),
   );
   const usedKinds = resourceKinds.filter((k) => all.some((r) => r.kind === k));
 
@@ -156,6 +192,61 @@ export function ResourcesManager() {
         </div>
       )}
 
+      {all.length > 0 && (
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-[repeat(3,minmax(0,1fr))_auto] lg:items-center">
+          <select
+            aria-label="Class"
+            value={classFilter}
+            onChange={(e) => {
+              setClassFilter(e.target.value as ClassLevel | "all");
+              setBatchFilter("all");
+            }}
+            className={adminInput}
+          >
+            <option value="all">All classes</option>
+            {classLevels.map((c) => (
+              <option key={c} value={c}>Class {c}</option>
+            ))}
+          </select>
+          <select
+            aria-label="Centre"
+            value={locationFilter}
+            onChange={(e) => {
+              setLocationFilter(e.target.value);
+              setBatchFilter("all");
+            }}
+            className={adminInput}
+          >
+            <option value="all">All centres</option>
+            {locations.map((l) => (
+              <option key={l.id} value={l.id}>{l.name}</option>
+            ))}
+          </select>
+          <select aria-label="Batch" value={batchFilter} onChange={(e) => setBatchFilter(e.target.value)} className={adminInput}>
+            <option value="all">All batches</option>
+            {batchOptions.map((b) => (
+              <option key={b.id} value={b.id}>Class {b.classLevel} · {b.name}</option>
+            ))}
+          </select>
+          <label className="flex items-center gap-2.5 rounded-xl border border-line px-3.5 py-2.5 text-sm">
+            <input type="checkbox" checked={hideEveryone} onChange={(e) => setHideEveryone(e.target.checked)} className="size-4 accent-[var(--forest)]" />
+            Hide &ldquo;Everyone&rdquo; items
+          </label>
+        </div>
+      )}
+
+      {all.length > 0 && filtersOn && (
+        <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-soft">
+          <span>
+            Showing {visible.length} of {all.length}
+            {audienceFiltered ? " — what students in this selection can see" : ""}
+          </span>
+          <button type="button" onClick={clearFilters} className="inline-flex items-center gap-1 text-ink underline-offset-4 hover:underline">
+            <X className="size-3.5" aria-hidden /> Clear filters
+          </button>
+        </p>
+      )}
+
       <div className="mt-5">
         {all.length === 0 ? (
           <EmptyState
@@ -165,7 +256,7 @@ export function ResourcesManager() {
             action={newButton}
           />
         ) : visible.length === 0 ? (
-          <EmptyState icon={<FolderOpen className="size-6" />} title="No matches" body="Try another type or search." />
+          <EmptyState icon={<FolderOpen className="size-6" />} title="No matches" body="Nothing is shared with this selection yet. Try other filters, or clear them." />
         ) : (
           <div className="overflow-hidden rounded-3xl border border-line">
             <AnimatePresence initial={false}>

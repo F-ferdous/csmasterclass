@@ -36,7 +36,7 @@ export const site = {
   /** Navbar + footer links. The About page is intentionally unlisted (still reachable at /about). */
   nav: [
     { label: "Home", href: "/" },
-    { label: "Teaching", href: "/teaching" },
+    { label: "Batches", href: "/teaching" },
     { label: "Success", href: "/success" },
     { label: "Books", href: "/books" },
     { label: "Free Resources", href: "/free-resources" },
