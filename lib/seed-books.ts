@@ -220,7 +220,7 @@ export const seedBooks: Book[] = [
     category: "Handbook",
     year: 2026,
     pages: 0,
-    prices: [],
+    prices: [{ kind: "hard", bdt: 1500 }],
     coverUrl: coverImage("as-computer-science-handbook-front.jpg"),
     backUrl: coverImage("as-computer-science-handbook-back.jpg"),
     coverColor: "#0A1C2A",

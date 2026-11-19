@@ -7,6 +7,7 @@ import { ArrowUpRight, BookOpen, CalendarClock, GraduationCap, Inbox, Mail, Plus
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { db } from "@/lib/firebase";
+import { cn } from "@/lib/utils";
 import { ease } from "@/components/motion/reveal";
 import { soonItems } from "./nav";
 import { PageHeader } from "./ui";
@@ -83,7 +84,7 @@ export function Overview() {
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
+      <div className={cn("grid gap-6", soonItems.length > 0 && "lg:grid-cols-[1.3fr_1fr]")}>
         <section className="rounded-3xl border border-line p-6">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-xl">Latest messages</h2>
@@ -106,6 +107,7 @@ export function Overview() {
           </ul>
         </section>
 
+        {soonItems.length > 0 && (
         <section className="rounded-3xl bg-band p-6 text-band-ink">
           <h2 className="font-display text-xl">On the roadmap</h2>
           <p className="mt-1 text-sm opacity-75">Sections coming to this dashboard next.</p>
@@ -120,6 +122,7 @@ export function Overview() {
             ))}
           </ul>
         </section>
+        )}
       </div>
     </div>
   );

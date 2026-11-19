@@ -10,6 +10,7 @@ import { useAppSetup } from "./app-install";
 import { DashboardFrame, FullScreenSpinner } from "./frame";
 import { studentNav } from "./student-nav";
 import { isNewSince, useMyAnnouncements, useSeenCutoff } from "./use-announcements";
+import { quizzesToDo, useMyQuizzes } from "./student-quizzes";
 import { useMyHomework } from "./use-homework";
 
 /** Signed-in students only: sidebar, top bar and redirect to sign-in. */
@@ -19,9 +20,11 @@ export function StudentShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   useAppSetup();
   const homework = useMyHomework();
+  const quizzes = useMyQuizzes();
   const announcements = useMyAnnouncements();
   const seen = useSeenCutoff(false);
   const badges = {
+    "/dashboard/quizzes": quizzesToDo(quizzes),
     "/dashboard/homework": (homework ?? []).filter((h) => ["todo", "overdue"].includes(homeworkStatus(h.homework, h.submission))).length,
     "/dashboard/announcements": pathname === "/dashboard/announcements" ? 0 : (announcements ?? []).filter((a) => isNewSince(a, seen)).length,
   };

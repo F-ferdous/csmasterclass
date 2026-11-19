@@ -6,7 +6,8 @@ import { Reveal, Stagger, StaggerItem } from "@/components/motion/reveal";
 import { StatsBand } from "@/components/sections/stats";
 import { Timeline } from "@/components/sections/timeline";
 import { CtaBand } from "@/components/sections/cta-band";
-import { milestones, recognitions, results, testimonials } from "@/lib/content";
+import { milestones, recognitions, results } from "@/lib/content";
+import { getSettings } from "@/lib/data";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
@@ -16,7 +17,8 @@ export const metadata: Metadata = pageMetadata({
   path: "/success",
 });
 
-export default function SuccessPage() {
+export default async function SuccessPage() {
+  const { testimonials } = await getSettings();
   return (
     <>
       <PageHero
@@ -70,24 +72,26 @@ export default function SuccessPage() {
         </div>
       </section>
 
-      {/* Wall of words */}
-      <section className="container-x py-20 sm:py-28">
-        <SectionHeader eyebrow="In their words" title={["Stories from ", { em: "students & parents." }]} align="center" className="mx-auto" />
-        <div className="mt-14 gap-5 [column-fill:_balance] sm:columns-2 lg:columns-3">
-          {testimonials.map((t, i) => (
-            <Reveal key={t.name} delay={(i % 3) * 0.08} className="mb-5 break-inside-avoid">
-              <figure className="rounded-3xl border border-line bg-paper p-7 transition-shadow duration-500 hover:shadow-soft">
-                <Quote className="size-6 text-ember" aria-hidden />
-                <blockquote className="mt-4 font-display text-xl leading-snug text-pretty">“{t.quote}”</blockquote>
-                <figcaption className="mt-5 border-t border-line pt-4">
-                  <p className="text-sm font-semibold">{t.name}</p>
-                  <p className="text-xs text-ink-soft">{t.detail}</p>
-                </figcaption>
-              </figure>
-            </Reveal>
-          ))}
-        </div>
-      </section>
+      {/* Wall of words (Admin → Settings → Testimonials) */}
+      {testimonials.length > 0 && (
+        <section className="container-x py-20 sm:py-28">
+          <SectionHeader eyebrow="In their words" title={["Stories from ", { em: "students & parents." }]} align="center" className="mx-auto" />
+          <div className="mt-14 gap-5 [column-fill:_balance] sm:columns-2 lg:columns-3">
+            {testimonials.map((t, i) => (
+              <Reveal key={`${t.name}-${i}`} delay={(i % 3) * 0.08} className="mb-5 break-inside-avoid">
+                <figure className="rounded-3xl border border-line bg-paper p-7 transition-shadow duration-500 hover:shadow-soft">
+                  <Quote className="size-6 text-ember" aria-hidden />
+                  <blockquote className="mt-4 font-display text-xl leading-snug text-pretty">“{t.quote}”</blockquote>
+                  <figcaption className="mt-5 border-t border-line pt-4">
+                    <p className="text-sm font-semibold">{t.name}</p>
+                    <p className="text-xs text-ink-soft">{t.detail}</p>
+                  </figcaption>
+                </figure>
+              </Reveal>
+            ))}
+          </div>
+        </section>
+      )}
 
       <CtaBand
         title={["Your success story ", { em: "starts here." }]}

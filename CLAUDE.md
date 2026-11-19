@@ -35,7 +35,7 @@ must **never appear on the Home page**.
   to GitHub `F-ferdous/csmasterclass`, branch `main`, root `/`. **Every push to `main` deploys automatically.**
   **Custom domain `cs-masterclass.com`** live 2026-10-23 (= `site.url`). The old App Hosting address
   csmasterclass--cs-masterclass.us-east4.hosted.app 308-redirects to it via `proxy.ts` (checks Host / X-Forwarded-Host /
-  Forwarded; a next.config `has: host` redirect did NOT fire on App Hosting). `www.cs-masterclass.com` resolves but returned 404 — add it in App Hosting → Domains as a redirect to the apex.
+  Forwarded; a next.config `has: host` redirect did NOT fire on App Hosting). `www.cs-masterclass.com` added to App Hosting 2026-11-19 (via the API) as a 301 redirect to the apex — **waiting on the owner's DNS**: at the registrar remove the `www` CNAME → cs-masterclass.com, add `www` A 35.219.200.198 and `www` TXT `fah-claim=023-02-4e58b2a8-99b2-4991-bc48-20cb1a19be28` (ownership was OWNERSHIP_MISMATCH until then; cert already covers *.cs-masterclass.com).
   `apphosting.yaml` holds the public `NEXT_PUBLIC_*` values (BUILD + RUNTIME) and references the Secret Manager secrets
   `SESSION_SECRET` (random, never change — signs every student out) and `VAPID_PRIVATE_KEY` (same as `.env.local`); the backend
   was granted access with `apphosting:secrets:grantaccess --backend csmasterclass --location us-east4`. Leave the console's
@@ -112,6 +112,9 @@ must **never appear on the Home page**.
 | `attendance/{batchId}_{YYYY-MM-DD}` | register: `records{uid: present/late/absent/excused}`, note | admin only |
 | `studentAttendance/{uid}` | student's own copy: `records{sessionId: {batchId,date,start,end,mark}}`, written with each register save | own read; admin write |
 | `tests/{id}` | title, type (class-test/mock/quiz), paper, date, maxMarks, batchIds, `marks{uid: number\|"absent"}`, published | admin only |
+| `quizzes/{id}` | online quiz: title, instructions, batchIds, opensAt/closesAt (Timestamps), timeLimit (min, 0 = none), `questions[{id, type mcq\|short, text, options, correct, marks, answer}]`, published, **testId** (linked `tests` doc, type quiz) — `lib/quizzes.ts` | admin only (has the answer key); students go through `app/quiz-actions.ts` |
+| `quizzes/{id}/attempts/{studentId}` | startedAt, savedAt, submittedAt, answers{qid: choice index\|text}, autoScore, shortMarks, feedback, score (null until written answers marked), markedAt | admin only; server writes for students |
+| `settings/site` | Admin → Settings: `payment{bkash,nagad,rocket,bank,note}`, `fees{9..12}` (monthly tuition), `socials[{label,href}]`, `testimonials[{quote,name,detail}]` — `lib/settings.ts`, read by `getSettings()` (tag `settings`) | public read, admin write |
 | `studentResults/{uid}` | `results{testId: {title,type,paper,date,max,score(null=absent),classAverage,highest}}` — synced by `syncResults()` in `lib/tests.ts` on publish/unpublish/save/delete | own read; admin write |
 | `homework/{id}` | title, instructions, link, batchIds, dueDate, maxMarks (null = feedback only), visible, **audienceKeys** (`batch:<id>`, empty when hidden) | students of those batches read; admin write |
 | `homework/{id}/submissions/{uid}` | link, note, file (Storage `homework/{id}/{uid}/…`), submittedAt; admin adds mark, feedback, markedAt | own read/write until marked; admin all |
@@ -121,11 +124,11 @@ must **never appear on the Home page**.
 | `adminPush/{admin uid}` | `subs{key: {endpoint, keys, device, at}}` — admin devices that turned on alerts | **server only** (saved via `saveAdminPush` with the admin's ID token) |
 | `parentReports/{YYYY-MM}_{uid}` | month, uid, comment, sentAt (WhatsApp report log) | admin only |
 | `announcements` | title, body, category, priority, audienceType/Values, pinned, status, expiresOn | published readable by signed-in users; admin write |
-| `payments` | tuition/book/admission/other, month, amount (BDT), method, reference, receivedOn | own + admin; admin write |
+| `payments` | tuition/book/admission/other, month, amount (BDT), method, reference, receivedOn, **bookSlugs** (book payments recorded since 2026-11-19) | own + admin; admin write |
 | `resources` | study materials: title, description, kind (pdf/doc/image/video/link), url **or** file{path,name,size,contentType} (Storage `resources/{id}/…`), audienceType/Values, **audienceKeys** (`all`, `class:10`, `batch:<id>`, `location:<id>`; empty when hidden), visible | students read only docs whose audienceKeys match their profile (query must be `array-contains-any` of exactly their keys); admin write. Same check in `storage.rules` |
 | `freeResources` | free material for /free-resources: title, description, kind, url **or** file + **fileUrl** (download link, Storage `free-resources/{id}/…`; empty for HTML — served by `/api/free-files/{id}`), **classes** `["9","10"…]`, visible — helpers `lib/free-resources.ts` | public read of visible docs only (query must filter `visible == true`); admin write |
 | `books` | book catalogue (falls back to `lib/seed-books.ts` when empty); **forClasses** `{"9": "must"\|"optional"}` (missing → built-in plan by slug); **level** `o-level`\|`a-level` | public read, admin write |
-| `orders/{id}` | ref (`CS-YYMMDD-XXXX`), uid (linked student or ""), name, phone, email, address, note, `items[{slug ("bundle" for the bundle), title, kind, price, qty}]`, subtotal, deliveryFee, discount, status (new/confirmed/sent/delivered/cancelled), source (website/whatsapp/phone/in-person), paymentStatus, paymentMethod, paymentRef, paidOn, **paymentId** (matching `payments` doc, type book, `orderId`), adminNote — helpers in `lib/orders.ts` | public create of a well-formed new/unpaid/website order only (`validWebOrder`); own read; admin all |
+| `orders/{id}` | ref (`CS-YYMMDD-XXXX`), uid (linked student or ""), name, phone, email, address, note, `items[{slug ("bundle" for the bundle), title, kind, price, qty}]`, subtotal, deliveryFee, discount, status (new/confirmed/sent/delivered/cancelled), source (website/whatsapp/phone/in-person), paymentStatus, paymentMethod, paymentRef, paidOn, **paymentId** (matching `payments` doc, type book, `orderId`), adminNote — helpers in `lib/orders.ts` | admin only (every order is placed through the server; `validWebOrder` rule removed 2026-11-19) |
 | `messages`, `subscribers` | contact form, newsletter | public create, admin read |
 
 ## Status — completed
@@ -140,7 +143,7 @@ Contact, 404. Favicon, dark/light toggle, Roboto font, pointer cursors.
 **Books & prices** (`lib/seed-books.ts`; covers rendered from `book-cover pages/` PDFs, stored in Firebase Storage
 `covers/<slug>-front|back.jpg` (public read) and referenced with `coverImage()` in `lib/books.ts` — no local copies):
 Handbook 499/1499 BDT, Topical Question Bank 399/999, Past Paper QP 399/999, Topical Notes 150/chapter
-or 1200 combined, Mock Exam 449/1399, **AS Computer Science Handbook (9618)** — price not set yet; Bundle (the five
+or 1200 combined, Mock Exam 449/1399, **AS Computer Science Handbook (9618)** — **Hardcover 1,500 BDT only** (set live in Firestore 2026-11-19); Bundle (the five
 0478/2210 books in `bundle.slugs`, not the AS book) 1999 soft / 4500 hard (savings computed by `bundleTiers()`).
 - **Per-class book lists** (`suggestBooks()` in `lib/books.ts`, editable per book in Admin → Books → "Suggested on student dashboards"):
   Class 9 must = Handbook + Topical QB, optional = Topical Notes; Class 10 must = Handbook + Topical QB + Past Paper + Mock,
@@ -197,7 +200,22 @@ Orders (`orders-manager.tsx`: Open/New/Confirmed/Sent/Delivered/Cancelled tabs, 
 student link (auto-suggested by phone), items editor, delivery charge + discount, mark paid → writes/updates/deletes the matching
 book payment, Delivered + linked student → ticks `booksOwned`, WhatsApp confirm/paid/sent messages; New order for WhatsApp/phone/
 in-person; sidebar badge = new orders), Payments (**Fee sheet** tab, first — `components/admin/fee-sheet.tsx`, added 2026-11-19: pick class + batch → table of students with the month, an editable fee box (default 3,500 BDT Class 9–10 / 4,500 Class 11–12, `defaultMonthlyFee()` in `lib/payments.ts` — not the batch fee) and a Paid switch that writes / deletes `payments/tuition-YYYY-MM-uid` (`sheetPaymentId`); students paid via Record payment show locked as paid; WhatsApp icon → drawer with editable receipt/reminder text (`feeMessage()`), send to parent or student. Tested on the emulator copy; monthly dues, record payments, WhatsApp reminders, WhatsApp receipts to parents after recording + send icon in ledger, ledger, CSV), Reports (KPIs + charts).
-Soon: Settings.
+**Settings** (`/admin/settings`, `components/admin/settings-manager.tsx`, 2026-11-19): payment details (bKash/Nagad/Rocket/bank/note → order page after placing,
+order-confirm + fee-reminder + overdue WhatsApp texts via `paymentLines()`), monthly fee per class (fee sheet + overdue default), social links (footer +
+Organization `sameAs`), testimonials (Home carousel + /success; sections hide when empty). Admin hook `useSiteSettings()`; nothing placeholder left in the "soon" list
+(the `app/admin/[section]` placeholder route was removed). WhatsApp number is still `site.whatsapp` in code.
+**Payments → Overdue** (`components/admin/overdue-list.tsx`): every unpaid/part-paid tuition month from "From" (default 2 months back) to the page's month,
+never before the student's first enrollment; fee = fee-sheet amount, else batch fee, else Settings fee; class/centre/batch filters, one WhatsApp reminder
+listing all months (`overdueMessage()`), Record button for the oldest month. **Record payment → Book** ticks the book(s) (bundle = its 5 slugs) in `booksOwned` (checkbox, on by default).
+**Online quizzes** (`/admin/quizzes`, `components/admin/quizzes-manager.tsx`; student `/dashboard/quizzes`, `components/dashboard/student-quizzes.tsx`, 2026-11-19):
+MCQ (2–6 choices, auto-marked on the server) + written questions (teacher marks in a drawer, with feedback); opens/closes times, optional time limit
+(server deadline = start + limit, never after close, 90 s grace; later answers ignored, last autosave counts), answers autosave every 4 s + localStorage,
+countdown auto-submits; answer key / model answers only sent after closing (Review page). Each quiz creates a linked `tests` doc (type quiz) — final
+scores are written into its marks (server `recordScore` / admin `writeTestMarks`), results reach students when that test is published in Tests & marks
+(re-synced if already published). Editing a published quiz re-marks submitted MCQs. Results page: stats, Mark/View, "Close out" (hand in saved answers of
+students who didn't submit, mark never-started absent), Publish/Unpublish, Duplicate, Delete (also deletes the linked test + results). Student nav badge = open quizzes not handed in.
+Tested 2026-11-19 on the emulator copy, 3 fresh rounds × 55 checks (`part1-3` scripts): filters, settings → public pages, book tick, overdue sums, quiz build/publish,
+4 students (submit, wrong, autosave-only, other batch), key not leaked, marking, re-mark, close out, review, time-limit auto-submit, late answers ignored, order-page payment box.
 
 **Installable app + push (PWA):** `app/manifest.ts` (start_url /dashboard, icons in `public/icons/` made from `app/icon.svg`
 with sharp), `public/sw.js` (push + notificationclick only, no caching; no-cache headers in next.config), registered by
@@ -275,6 +293,21 @@ and Boolean logic (Class 9), arrays and scenario questions (Class 10, with an in
   supervised kNN / k-means / semi-supervised demos, Q-learning robot, ANN + face + pixel diagrams, XOR network trained by back
   propagation, regression line fitting, 15 exam questions, terms + quiz). `window.__ai` exposes the solvers for automated checks.
   Tested in headless Chrome: no errors, 375 px fits, dark mode. 29 pages in total.
+  Added 2026-11-19 (A2 18.1): `dijkstra-astar-a2.html` (`pathfinding.html`): Dijkstra and A* run side by side on the same graph
+  (synced Next/Play, race bar, compact value pills side by side, full book-style boxes in single mode, working tables), worked
+  example 1 (S→G, Dijkstra explores 10, A* 5) and 2 (A→J, 12 vs 5, replaced working values), 5 self-checking practice questions
+  (Q1 Dijkstra by hand; Q2–Q5 on one map with h: first f values, full A* order/path/cost, Dijkstra vs A* count, road C–D closed),
+  10-question quiz. All graphs checked: unique shortest paths, admissible + consistent h, no A* ties in the examples. `window.__sp`
+  exposes the solver. Tested in headless Chrome (correct answers pass, wrong fail, no errors, 375/768 fit, dark). 30 pages in total.
+  Added 2026-11-19 (A2 ch 13 + 14, so A2 now has ch 13–15, 16.3, 17, 18, 20): `data-representation-a2.html` (`datarep-a2.html`: enumerated
+  type demo, pointer-through-memory diagram, set operations, file lab (serial/sequential/random, sequential vs direct access with read
+  counts), hash address calculator (Activity 13D) + open/closed hash table, floating-point bit editor (8+8/10+6/12+4, normalise button),
+  denary→normalised float converter with steps/truncation/overflow/underflow, range table, 0.1 rounding demo) and
+  `communication-internet-a2.html` (`protocols-a2.html`: clickable TCP/IP stack, encapsulation stepper, email journey, POP3 vs IMAP demo,
+  HTTP order game, TCP handshake + PAR sequence diagram, Ethernet frame, BitTorrent swarm simulator with leech, circuit vs packet
+  switching animation on one router network (cut link / busy link), hop-number demo). Past-paper practice adapted (wording shortened)
+  from 9618/31 May/June 2024 Q1–4 and 9618/32 May/June 2023 Q1, 2, 6(a), 7 — self-checking where numeric. Book error found: it says
+  5.88 is stored as 5.75 with an 8-bit mantissa; truncation actually gives 5.875 (page uses 5.875). 32 pages in total.
 - **HTML study materials (2026-10-26):** Admin → Resources accepts `.html` (kind `html`, "Interactive"; homework still refuses HTML). Stored like other files at Storage `resources/{id}/…` (storage.rules allows `text/html` on that
   path only — deployed 2026-10-26). Students open it in a full-screen pop-up (`HtmlViewer` in `components/dashboard/resource-card.tsx`,
   iframe `sandbox="allow-scripts"`). `/api/student/files/resource/{id}` serves HTML only to iframes (`Sec-Fetch-Dest`), with a
@@ -321,24 +354,20 @@ share image. Next.js upgraded 16.4.0 → **16.4.2** (critical image-optimizer RC
 **Live on App Hosting since 2026-10-23** (see Run / build / deploy); custom domain cs-masterclass.com + SEO pass the same day.
 **SEO to-do (owner):** verify cs-masterclass.com in Google Search Console (Domain property, DNS TXT) and submit
 `https://cs-masterclass.com/sitemap.xml`; create a Google Business Profile (cs-masterclass.com was added to Firebase Auth →
-Authorized domains on 2026-10-23 via the Identity Toolkit admin API); connect www.cs-masterclass.com in App Hosting (redirect to apex).
+Authorized domains on 2026-10-23 via the Identity Toolkit admin API); finish www.cs-masterclass.com — the redirect exists in App Hosting, the owner must update DNS (records under Run / build / deploy).
 Real testimonials/results matter for rankings too (placeholders in `lib/content.ts`). `results` now holds only "240+ admitted to CS degrees" (1,800+ A*/A and 4.9/5 from 900+ reviews removed 2026-11-19 — too high for 400+ students); the 2021 "1,000 A* grades" milestone removed the same day). Still to replace (needs the owner): owner name (About page says "Your Name"), social links (point at youtube.com etc.),
 `site.whatsapp`, placeholder testimonials/results in `lib/content.ts`. 
 
-- **Settings** section in admin (WhatsApp number, payment instructions, prices). Orders is built (2026-10-14).
 - Public **order form** `/order` (`components/books/order-form.tsx`): every "Order now"/"Get the bundle" button links to it via
   `orderLink()` in `lib/pricing.ts` (`?book=slug&kind=hard` or `?bundle=soft`). **Since 2026-11-03 every order (guest or signed-in
   student) goes through the Server Function `placeOrder` (`app/order-actions.ts`)**: prices re-read from the catalogue, doc id = the
   form's attempt id (a retry of the same order returns the saved one — no duplicates), 25 s timeout, offline check, and on connection
   errors a "send this order on WhatsApp" button. Before this the browser wrote guest orders to Firestore itself, and on a bad
   connection the button could spin forever (2026-11-03: a student said they ordered, but no order had ever arrived — 0 in Firestore). `placeMyOrder` and
-  `notifyNewWebOrder` were removed. The `validWebOrder` public-create rule in firestore.rules is now unused — remove it and deploy
-  the rules once this code is live. Payment details aren't shown to customers yet
-  (needs the bKash/Nagad numbers) — the confirm message says "we'll share the payment details".
+  `notifyNewWebOrder` were removed. The unused `validWebOrder` rule was removed 2026-11-19. Payment details come from Admin → Settings
+  (until filled in, the confirm message says "we'll share the payment details").
 - Ideas not built: students seeing their orders in the dashboard (rules already allow own read); push/email alert to admin on a new order.
-- Payment instructions for students (bKash/Nagad numbers) not provided yet.
-- **AS Computer Science Handbook prices** — poster (2026-11-07) says normal 2,000 BDT, CS Masterclass students 1,500; owner chose **not** to put it on the website yet (soft/hard not specified). The book shows without a price until they say so.
-- Idea: recording a book payment in Admin → Payments could auto-tick that book in the student's "Books bought" (not built).
+- Payment details (bKash/Nagad numbers) — owner fills them in Admin → Settings (empty until then).
 - Uploading files to Storage from the CLI: the firebase CLI login works (script used on 2026-10-14 got a token via
   firebase-tools' `lib/auth.js` `getAccessToken` and POSTed to the GCS JSON API). Admin → Books cover upload works in the browser.
 - `service-account.json` is in place (added 2026-10-14) — the server needs it for registration, sign-in and all student data.
@@ -356,7 +385,7 @@ Real testimonials/results matter for rankings too (placeholders in `lib/content.
 - Flow/rules tests: run against emulators (Auth + Firestore + Storage) with firebase-admin pointed at them. Emulator needs Java 21 for current firebase-tools (Mac has 17) → use `npx firebase-tools@13.35.1`; port 8080 is taken by Docker.
 - Push needs HTTPS (works on the live site, not on plain http://localhost from a phone).
 - Push delivery to a real phone is untested (the test browser blocks notification permission) — test on a phone after deploy.
-- Placeholder content to replace: testimonials, results, milestones, recognitions (`lib/content.ts`), owner name/email/socials (`lib/site.ts`).
+- Placeholder content to replace: testimonials + social links (now in Admin → Settings — still the built-in placeholders until the owner saves), results, milestones, recognitions (`lib/content.ts`), owner name (`lib/site.ts`).
 - **Open (2026-10-23): admin sign-in on Chrome for iPhone shows "Network error"** (`auth/network-request-failed`) on the owner's
   iPhone over Wi-Fi and mobile data; Safari on the same phone works, students (server sign-in) work in Chrome. Not reproducible in
   WebKit iPhone emulation. Workaround: Safari / installed CS Admin app. **Changed (pushed 2026-10-24):** `auth()` in

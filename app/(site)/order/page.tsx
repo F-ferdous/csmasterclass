@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { OrderForm } from "@/components/books/order-form";
 import { PageHero } from "@/components/ui/page-hero";
-import { getBooks } from "@/lib/data";
+import { getBooks, getSettings } from "@/lib/data";
+import { paymentLines } from "@/lib/settings";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
@@ -30,6 +31,6 @@ export default function OrderPage() {
 }
 
 async function Order() {
-  const books = await getBooks();
-  return <OrderForm books={books} />;
+  const [books, settings] = await Promise.all([getBooks(), getSettings()]);
+  return <OrderForm books={books} payment={paymentLines(settings.payment)} />;
 }

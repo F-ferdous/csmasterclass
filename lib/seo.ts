@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { site } from "./site";
 import { bookLevelLabels } from "./books";
 import { orderLink, priceLabels } from "./pricing";
+import { isProfileLink } from "./settings";
 import type { Batch, Book, Location } from "./types";
 
 /**
@@ -70,7 +71,7 @@ export function pageMetadata({ title, description, path, absoluteTitle, images, 
 const orgId = `${site.url}/#organization`;
 
 /** Real profile links only (the placeholders point at bare domains like https://youtube.com). */
-const sameAs = () => site.socials.map((s) => s.href).filter((href) => new URL(href).pathname.length > 1);
+const sameAs = (socials: readonly { href: string }[]) => socials.map((s) => s.href).filter(isProfileLink);
 const contactEmail = () => (site.email.endsWith("@example.com") ? undefined : site.email);
 
 const place = (l: Location) => ({
@@ -88,7 +89,7 @@ const place = (l: Location) => ({
 });
 
 /** The teaching brand, its coaching centres and what it teaches. */
-export function organizationLd(locations: Location[]) {
+export function organizationLd(locations: Location[], socials: readonly { href: string }[] = site.socials) {
   return {
     "@context": "https://schema.org",
     "@type": "EducationalOrganization",
@@ -101,7 +102,7 @@ export function organizationLd(locations: Location[]) {
       "Cambridge IGCSE / O Level (0478 / 2210) and AS & A Level (9618) Computer Science coaching in Dhaka, with study books, topical notes, question banks and mock exam papers.",
     ...(contactEmail() ? { email: contactEmail() } : {}),
     ...(site.whatsapp ? { telephone: `+${site.whatsapp}` } : {}),
-    ...(sameAs().length ? { sameAs: sameAs() } : {}),
+    ...(sameAs(socials).length ? { sameAs: sameAs(socials) } : {}),
     address: { "@type": "PostalAddress", addressLocality: site.city, addressCountry: "BD" },
     areaServed: { "@type": "City", name: site.city },
     location: locations.map(place),

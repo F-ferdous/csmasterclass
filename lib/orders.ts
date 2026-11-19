@@ -146,7 +146,8 @@ function lines(o: Order) {
 }
 
 /** WhatsApp message confirming an order with the customer. */
-export function confirmMessage(o: Order) {
+/** `payment` = "How to pay" lines from Admin → Settings. */
+export function confirmMessage(o: Order, payment: string[] = []) {
   const delivery = needsDelivery(o.items)
     ? `Printed books will be delivered to: ${o.address || "(please send your address)"}`
     : "Softcopies are sent as PDF once payment is received.";
@@ -156,7 +157,11 @@ export function confirmMessage(o: Order) {
     ...lines(o),
     ``,
     delivery,
-    o.paymentStatus === "paid" ? `Payment received — thank you.` : `Please reply to confirm and we'll share the payment details.`,
+    ...(o.paymentStatus === "paid"
+      ? [`Payment received — thank you.`]
+      : payment.length
+        ? [`Total: ${bdt(orderTotal(o))}`, ``, ...payment, ``, `Please send the transaction ID with your order number (${o.ref}) after paying.`]
+        : [`Please reply to confirm and we'll share the payment details.`]),
     ``,
     `— CS Masterclass`,
   ].join("\n");

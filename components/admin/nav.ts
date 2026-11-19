@@ -18,6 +18,7 @@ import {
   Megaphone,
   Settings,
   ShoppingBag,
+  Timer,
   UserPlus,
 } from "lucide-react";
 import type { NavGroup } from "@/components/dashboard/frame";
@@ -36,6 +37,7 @@ export const adminNav: NavGroup[] = [
       { label: "Enrollments", href: "/admin/enrollments", icon: UserPlus, description: "Batch admission requests and confirmed seats." },
       { label: "Attendance", href: "/admin/attendance", icon: ClipboardCheck, description: "Session-by-session attendance for each batch." },
       { label: "Tests & marks", href: "/admin/tests", icon: ClipboardList, description: "Class tests and mock exams — enter marks and publish results to students." },
+      { label: "Online quizzes", href: "/admin/quizzes", icon: Timer, description: "Quizzes students take on their dashboard — multiple choice marked automatically, written answers marked by you." },
       { label: "Homework", href: "/admin/homework", icon: BookMarked, description: "Set homework for batches, see submissions, mark and give feedback." },
       { label: "Revision", href: "/admin/revision", icon: FileStack, description: "Syllabus confidence and past paper practice for each batch." },
       { label: "Parent reports", href: "/admin/parent-reports", icon: FileText, description: "Monthly attendance, marks and fee summary for each parent, sent on WhatsApp." },
@@ -63,7 +65,7 @@ export const adminNav: NavGroup[] = [
       { label: "Orders", href: "/admin/orders", icon: ShoppingBag, description: "Book orders from the website and WhatsApp — payment and delivery status." },
       { label: "Payments", href: "/admin/payments", icon: CreditCard, description: "Tuition and book payments." },
       { label: "Reports", href: "/admin/reports", icon: BarChart3, description: "Enrollment, sales and attendance trends." },
-      { label: "Settings", href: "/admin/settings", icon: Settings, soon: true, description: "Site details, WhatsApp number, prices and admins." },
+      { label: "Settings", href: "/admin/settings", icon: Settings, description: "Payment details, monthly fees, social links and testimonials." },
     ],
   },
 ];

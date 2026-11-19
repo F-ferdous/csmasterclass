@@ -138,8 +138,13 @@ export function receiptMessage(
   return lines.join("\n");
 }
 
-/** Default monthly tuition on the fee sheet: Class 9–10 (O Level) 3,500 BDT, Class 11–12 (AS & A Level) 4,500 BDT. */
-export function defaultMonthlyFee(classLevel: ClassLevel | "") {
+/**
+ * Default monthly tuition on the fee sheet: from Admin → Settings when given, else Class 9–10 (O Level)
+ * 3,500 BDT, Class 11–12 (AS & A Level) 4,500 BDT.
+ */
+export function defaultMonthlyFee(classLevel: ClassLevel | "", fees?: Partial<Record<ClassLevel, number>>) {
+  const set = classLevel ? fees?.[classLevel] : undefined;
+  if (set && set > 0) return set;
   return classLevel === "11" || classLevel === "12" ? 4500 : 3500;
 }
 
@@ -153,12 +158,15 @@ export function feeMessage({
   month,
   amount,
   paid,
+  payment = [],
 }: {
   studentName: string;
   batch?: { classLevel: string; name: string };
   month: string;
   amount: number;
   paid: boolean;
+  /** "How to pay" lines from Admin → Settings (reminders only). */
+  payment?: string[];
 }) {
   const student = `${studentName || "your child"}${batch ? ` (Class ${batch.classLevel} · ${batch.name})` : ""}`;
   const lines = paid
@@ -178,9 +186,63 @@ export function feeMessage({
         `This is a friendly reminder that the tuition fee for ${student} for ${monthLabel(month)} is due.`,
         ``,
         `Amount: ${bdt(amount)}`,
+        ...(payment.length ? [``, ...payment] : []),
         ``,
         `Please ignore this message if you have already paid. Thank you.`,
         `— CS Masterclass`,
       ];
   return lines.join("\n");
+}
+
+/** Months from `from` to `to` inclusive (YYYY-MM), oldest first. Capped at 24. */
+export function monthsBetween(from: string, to: string) {
+  const out: string[] = [];
+  let [y, m] = from.split("-").map(Number);
+  const [ty, tm] = to.split("-").map(Number);
+  if (!y || !ty) return out;
+  while ((y < ty || (y === ty && m <= tm)) && out.length < 24) {
+    out.push(`${y}-${String(m).padStart(2, "0")}`);
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+  }
+  return out;
+}
+
+/** The month `n` months before `month` (YYYY-MM). */
+export function monthsBefore(month: string, n: number) {
+  const [y, m] = month.split("-").map(Number);
+  const d = new Date(y, m - 1 - n, 1);
+  return thisMonth(d);
+}
+
+/** WhatsApp reminder for several unpaid months (Payments → Overdue). */
+export function overdueMessage({
+  studentName,
+  batch,
+  months,
+  payment = [],
+}: {
+  studentName: string;
+  batch?: { classLevel: string; name: string };
+  months: { month: string; remaining: number }[];
+  payment?: string[];
+}) {
+  const student = `${studentName || "your child"}${batch ? ` (Class ${batch.classLevel} · ${batch.name})` : ""}`;
+  const total = months.reduce((s, m) => s + m.remaining, 0);
+  return [
+    `Dear Parent,`,
+    ``,
+    `This is a friendly reminder that the following tuition fees for ${student} are still due:`,
+    ``,
+    ...months.map((m) => `• ${monthLabel(m.month)}: ${bdt(m.remaining)}`),
+    ``,
+    `Total due: ${bdt(total)}`,
+    ...(payment.length ? [``, ...payment] : []),
+    ``,
+    `Please ignore this message if you have already paid. Thank you.`,
+    `— CS Masterclass`,
+  ].join("\n");
 }

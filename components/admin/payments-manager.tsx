@@ -1,6 +1,6 @@
 "use client";
 
-import { addDoc, collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import { arrayUnion, collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc, updateDoc, writeBatch } from "firebase/firestore";
 import { AnimatePresence, motion } from "motion/react";
 import { AlertTriangle, Banknote, CheckCircle2, Download, MessageCircle, Pencil, Plus, Receipt, Search, Send, Trash2, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -33,11 +33,12 @@ import { priceLabels } from "@/lib/pricing";
 import { bundle } from "@/lib/content";
 import { rosterFor } from "@/lib/roster";
 import { FeeSheet } from "./fee-sheet";
+import { OverdueList } from "./overdue-list";
 import type { Batch, ClassLevel, UserProfile } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { adminInput, Drawer, DrawerBody, DrawerFooter, drawerFormClass, EmptyState, ErrorText, Field, GhostButton, PageHeader, PrimaryButton, Segmented, Spinner } from "./ui";
 
-type View = "sheet" | "dues" | "ledger";
+type View = "sheet" | "overdue" | "dues" | "ledger";
 type DueRow = { user: UserProfile; batch: Batch; status: DueStatus; paid: number; remaining: number };
 
 /** That month's tuition status for a student — added to receipts so parents see what's left. */
@@ -181,10 +182,11 @@ export function PaymentsManager() {
       </div>
 
       {/* View switch */}
-      <div className="mt-6 flex gap-1 rounded-full border border-line p-1 sm:w-fit">
+      <div className="mt-6 flex gap-1 overflow-x-auto rounded-full border border-line p-1 sm:w-fit">
         {(
           [
             ["sheet", "Fee sheet"],
+            ["overdue", "Overdue"],
             ["dues", "Tuition dues"],
             ["ledger", "All payments"],
           ] as [View, string][]
@@ -193,7 +195,7 @@ export function PaymentsManager() {
             key={id}
             type="button"
             onClick={() => setView(id)}
-            className={cn("relative rounded-full px-4 py-2 text-sm", view === id ? "text-paper" : "text-ink-soft hover:text-ink")}
+            className={cn("relative shrink-0 rounded-full px-4 py-2 text-sm", view === id ? "text-paper" : "text-ink-soft hover:text-ink")}
           >
             {view === id && <motion.span layoutId="payments-view" className="absolute inset-0 rounded-full bg-ink" transition={{ type: "spring", stiffness: 400, damping: 34 }} />}
             <span className="relative">{label}</span>
@@ -204,6 +206,10 @@ export function PaymentsManager() {
       {view === "sheet" ? (
         <div className="mt-4">
           <FeeSheet month={month} batches={batches} users={users} enrollments={enrollments} payments={all} />
+        </div>
+      ) : view === "overdue" ? (
+        <div className="mt-4">
+          <OverdueList month={month} batches={batches} users={users} enrollments={enrollments} payments={all} onRecord={setEditing} />
         </div>
       ) : (
       <>
@@ -457,7 +463,8 @@ function PaymentForm({
   const [studentSearch, setStudentSearch] = useState("");
   const [type, setType] = useState<PaymentType>(initial.type ?? "tuition");
   const [month, setMonth] = useState(initial.month || thisMonth());
-  const [bookChoice, setBookChoice] = useState(""); // "slug|kind"
+  const [bookChoice, setBookChoice] = useState(""); // "slug|kind" or "bundle-kind"
+  const [tickOwned, setTickOwned] = useState(true);
   const [description, setDescription] = useState(initial.description ?? "");
   const [amount, setAmount] = useState<string>(initial.amount !== undefined ? String(initial.amount) : "");
   const [method, setMethod] = useState<PaymentMethod>(initial.method ?? "cash");
@@ -481,6 +488,9 @@ function PaymentForm({
   const alreadyPaid = student
     ? payments.filter((p) => p.uid === student.uid && p.type === "tuition" && p.month === month && p.id !== initial.id).reduce((s, p) => s + p.amount, 0)
     : 0;
+
+  const chosenSlugs = bookChoice.startsWith("bundle-") ? [...bundle.slugs] : bookChoice ? [bookChoice.split("|")[0]] : [];
+  const alreadyOwned = student ? chosenSlugs.filter((s) => student.booksOwned.includes(s)) : [];
 
   function chooseBook(value: string) {
     setBookChoice(value);
@@ -524,12 +534,18 @@ function PaymentForm({
       note: note.trim(),
       updatedAt: serverTimestamp(),
     };
+    // A book payment ticks the book(s) in the student's "Books bought" (hides them from their suggestions).
+    const slugs = type === "book" && tickOwned ? chosenSlugs : [];
     try {
       if (initial.id) {
         await setDoc(doc(db(), "payments", initial.id), data, { merge: true });
         onDone();
       } else {
-        await addDoc(collection(db(), "payments"), { ...data, createdAt: serverTimestamp() });
+        const d = db();
+        const wb = writeBatch(d);
+        wb.set(doc(collection(d, "payments")), { ...data, ...(type === "book" && chosenSlugs.length ? { bookSlugs: chosenSlugs } : {}), createdAt: serverTimestamp() });
+        if (slugs.length) wb.update(doc(d, "students", student.uid), { booksOwned: arrayUnion(...slugs), updatedAt: serverTimestamp() });
+        await wb.commit();
         setSaved(data);
         setSaving(false);
       }
@@ -620,6 +636,7 @@ function PaymentForm({
         )}
 
         {type === "book" && (
+          <>
           <Field label="Book">
             <select value={bookChoice} onChange={(e) => chooseBook(e.target.value)} className={adminInput}>
               <option value="">Choose a book and edition…</option>
@@ -637,6 +654,18 @@ function PaymentForm({
               ))}
             </select>
           </Field>
+          {!initial.id && chosenSlugs.length > 0 && (
+            <label className="-mt-2 flex items-start gap-2.5 text-sm">
+              <input type="checkbox" checked={tickOwned} onChange={(e) => setTickOwned(e.target.checked)} className="mt-0.5 size-4 accent-[var(--forest)]" />
+              <span>
+                Tick {chosenSlugs.length > 1 ? `these ${chosenSlugs.length} books` : "this book"} in the student&apos;s <strong className="font-medium">Books bought</strong>
+                <span className="block text-xs text-ink-soft">
+                  {alreadyOwned.length === chosenSlugs.length ? "Already ticked." : "It then stops showing in their suggested books."}
+                </span>
+              </span>
+            </label>
+          )}
+          </>
         )}
 
         <Field label="Description" hint="Optional">

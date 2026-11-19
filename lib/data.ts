@@ -1,10 +1,11 @@
 import { cacheLife, cacheTag } from "next/cache";
-import { collection, getDocs, orderBy, query, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, orderBy, query, where } from "firebase/firestore";
 import { db, isFirebaseConfigured } from "./firebase";
 import { newestFirst, normalizeFreeResource, type FreeResource } from "./free-resources";
 import { normalizeBook } from "./normalize";
 import { defaultLocations, normalizeBatch, normalizeLocation, sortBatches } from "./coaching";
 import { seedBooks } from "./seed-books";
+import { defaultSettings, normalizeSettings, type SiteSettings } from "./settings";
 import type { Batch, Book, Location } from "./types";
 
 /** All public books (drafts excluded). Cached and tagged so /admin can refresh it. */
@@ -74,5 +75,22 @@ export async function getCoaching(): Promise<{ locations: Location[]; batches: B
   } catch (err) {
     console.error("[coaching] Firestore read failed, using defaults:", err);
     return { locations: defaultLocations, batches: [] };
+  }
+}
+
+/** Admin → Settings (social links, testimonials, payment details, fees). Built-in values until first saved. */
+export async function getSettings(): Promise<SiteSettings> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("settings");
+
+  if (!isFirebaseConfigured) return defaultSettings;
+
+  try {
+    const snap = await getDoc(doc(db(), "settings", "site"));
+    return normalizeSettings(snap.exists() ? snap.data() : null);
+  } catch (err) {
+    console.error("[settings] Firestore read failed, using defaults:", err);
+    return defaultSettings;
   }
 }

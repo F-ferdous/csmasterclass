@@ -3,20 +3,20 @@
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft, ArrowRight, Quote } from "lucide-react";
 import { useEffect, useState } from "react";
-import { testimonials } from "@/lib/content";
+import type { Testimonial } from "@/lib/settings";
 import { ease } from "@/components/motion/reveal";
 
 /** Auto-advancing testimonial carousel; pauses while hovered or focused. */
-export function TestimonialCarousel() {
+export function TestimonialCarousel({ testimonials }: { testimonials: Testimonial[] }) {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
-  const t = testimonials[index];
+  const t = testimonials[index % testimonials.length];
 
   useEffect(() => {
     if (paused) return;
     const id = setTimeout(() => setIndex((i) => (i + 1) % testimonials.length), 6500);
     return () => clearTimeout(id);
-  }, [index, paused]);
+  }, [index, paused, testimonials.length]);
 
   const go = (dir: 1 | -1) => setIndex((i) => (i + dir + testimonials.length) % testimonials.length);
 

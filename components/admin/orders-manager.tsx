@@ -35,7 +35,9 @@ import { bdt, methodLabels, paymentMethods, thisMonth, todayISO, type PaymentMet
 import { phoneKey, waLink } from "@/lib/phone";
 import { priceLabels } from "@/lib/pricing";
 import type { Book, UserProfile } from "@/lib/types";
+import { paymentLines } from "@/lib/settings";
 import { cn } from "@/lib/utils";
+import { useSiteSettings } from "./use-settings";
 import { adminInput, Drawer, DrawerBody, DrawerFooter, drawerFormClass, EmptyState, ErrorText, Field, GhostButton, PageHeader, PrimaryButton, Segmented, Spinner } from "./ui";
 
 type Tab = "active" | OrderStatus | "all";
@@ -268,6 +270,7 @@ function StatCard({ icon: Icon, label, value, note, warn, onClick }: { icon: typ
 
 function OrderEditor({ initial, users, books, onDone }: { initial: Order | null; users: UserProfile[]; books: Book[]; onDone: () => void }) {
   const [ref] = useState(() => initial?.ref ?? newOrderRef());
+  const payment = paymentLines(useSiteSettings().payment);
   const [name, setName] = useState(initial?.name ?? "");
   const [phone, setPhone] = useState(initial?.phone ?? "");
   const [email, setEmail] = useState(initial?.email ?? "");
@@ -435,7 +438,7 @@ function OrderEditor({ initial, users, books, onDone }: { initial: Order | null;
   }
 
   const messages = [
-    { label: "Confirm order", text: confirmMessage(draft), show: true },
+    { label: "Confirm order", text: confirmMessage(draft, payment), show: true },
     { label: "Payment received", text: paidMessage(draft), show: paymentStatus === "paid" },
     { label: needsDelivery(items) ? "On its way" : "Books sent", text: sentMessage(draft), show: status === "sent" || status === "delivered" },
   ].filter((m) => m.show);

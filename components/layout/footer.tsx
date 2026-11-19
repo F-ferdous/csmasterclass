@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { waLink } from "@/lib/phone";
+import { getSettings } from "@/lib/data";
 import { site } from "@/lib/site";
 
-export function Footer() {
+export async function Footer() {
+  const { socials } = await getSettings();
   return (
     <footer className="relative mt-24 overflow-hidden bg-band text-band-ink">
       <div className="container-x grid gap-12 py-16 sm:grid-cols-2 md:grid-cols-[1.4fr_1fr_1fr_1fr] md:py-20">
@@ -61,7 +63,7 @@ export function Footer() {
                 {site.email}
               </a>
             </li>
-            {site.socials.map((s) => (
+            {socials.map((s) => (
               <li key={s.label}>
                 <a href={s.href} target="_blank" rel="noreferrer" className="link-underline text-sm opacity-90 hover:opacity-100">
                   {s.label}

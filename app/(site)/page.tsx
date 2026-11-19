@@ -10,7 +10,7 @@ import { SuccessPreview } from "@/components/sections/success-preview";
 import { Newsletter } from "@/components/sections/newsletter";
 import { FaqSection } from "@/components/sections/faq";
 import { JsonLd } from "@/components/seo/json-ld";
-import { getBooks, getCoaching } from "@/lib/data";
+import { getBooks, getCoaching, getSettings } from "@/lib/data";
 import { faqs } from "@/lib/content";
 import { organizationLd, pageMetadata, websiteLd } from "@/lib/seo";
 import { site } from "@/lib/site";
@@ -24,12 +24,12 @@ export const metadata = pageMetadata({
 });
 
 export default async function HomePage() {
-  const [books, { locations }] = await Promise.all([getBooks(), getCoaching()]);
+  const [books, { locations }, settings] = await Promise.all([getBooks(), getCoaching(), getSettings()]);
   const byFeature = [...books].sort((a, b) => Number(b.featured) - Number(a.featured) || a.order - b.order);
 
   return (
     <>
-      <JsonLd data={[organizationLd(locations), websiteLd()]} />
+      <JsonLd data={[organizationLd(locations, settings.socials), websiteLd()]} />
       <Hero />
       <PromoVideo />
       <TopicMarquee />
@@ -38,7 +38,7 @@ export default async function HomePage() {
       <BundleOffer books={byFeature} />
       <BatchesLocations />
       <Approach />
-      <SuccessPreview />
+      <SuccessPreview testimonials={settings.testimonials} />
       <FaqSection
         faqs={faqs}
         intro="Classes, centres, books and how to join — the short answers. Anything else, just send a message."

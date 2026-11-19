@@ -49,7 +49,7 @@ function whatsAppOrder(items: OrderItem[], subtotal: number, c: { name: string; 
     .join("\n");
 }
 
-export function OrderForm({ books }: { books: Book[] }) {
+export function OrderForm({ books, payment = [] }: { books: Book[]; payment?: string[] }) {
   const params = useSearchParams();
   const { student: profile } = useStudentSession();
   const tiers = useMemo(() => bundleTiers(books), [books]);
@@ -159,7 +159,7 @@ export function OrderForm({ books }: { books: Book[] }) {
     setState("error");
   }
 
-  if (placed) return <Placed {...placed} />;
+  if (placed) return <Placed {...placed} payment={payment} />;
 
   return (
     <form onSubmit={onSubmit} className="grid gap-10 lg:grid-cols-[1.25fr_0.9fr] lg:items-start lg:gap-14">
@@ -442,7 +442,7 @@ function initialPicks(books: Book[], params: { get(name: string): string | null 
   return picks;
 }
 
-function Placed({ ref, phone, items, subtotal }: { ref: string; phone: string; items: OrderItem[]; subtotal: number }) {
+function Placed({ ref, phone, items, subtotal, payment }: { ref: string; phone: string; items: OrderItem[]; subtotal: number; payment: string[] }) {
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mx-auto max-w-2xl rounded-[2rem] border border-line bg-paper-2/50 p-6 text-center sm:p-12" role="status">
       <motion.span
@@ -470,6 +470,17 @@ function Placed({ ref, phone, items, subtotal }: { ref: string; phone: string; i
           <span className="tabular-nums">{formatBdt(subtotal)}</span>
         </li>
       </ul>
+      {payment.length > 0 && (
+        <div className="mx-auto mt-6 max-w-md rounded-2xl border border-line bg-paper p-4 text-left text-sm">
+          <p className="font-semibold">{payment[0]}</p>
+          <ul className="mt-2 space-y-1 text-ink-soft">
+            {payment.slice(1).map((l) => (
+              <li key={l}>{l}</li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-ink-faint">Please wait until we confirm your order, then pay and send us the transaction ID with your order number.</p>
+        </div>
+      )}
       <div className="mt-8 flex flex-wrap justify-center gap-3">
         {site.whatsapp && (
           <a

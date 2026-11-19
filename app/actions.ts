@@ -23,3 +23,9 @@ export async function refreshCoaching(idToken: string) {
   await requireAdmin(idToken);
   updateTag("coaching");
 }
+
+/** Called by /admin after Settings are saved (social links, testimonials, payment details). */
+export async function refreshSettings(idToken: string) {
+  await requireAdmin(idToken);
+  updateTag("settings");
+}

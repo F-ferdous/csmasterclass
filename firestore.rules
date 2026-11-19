@@ -103,6 +103,22 @@ service cloud.firestore {
     }
 
     // Tests with every student's marks, and the parent-report log.
+    // Admin → Settings: social links, testimonials, payment details, default fees. Shown on public pages.
+    match /settings/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Online quizzes (with answer keys) and each student's attempt. Students take them through the
+    // server (app/quiz-actions.ts), which never sends the answers before the quiz closes.
+    match /quizzes/{id} {
+      allow read, write: if isAdmin();
+
+      match /attempts/{uid} {
+        allow read, write: if isAdmin();
+      }
+    }
+
     match /tests/{id} {
       allow read, write: if isAdmin();
     }
@@ -137,29 +153,9 @@ service cloud.firestore {
     }
 
     // ── Orders ─────────────────────────────────────────────────
-    // Website order form: anyone can place a well-formed new, unpaid order (prices are
-    // re-checked by an admin before confirming). Signed-in students' orders come from the server.
-    function validWebOrder() {
-      let d = request.resource.data;
-      return d.keys().hasOnly(['ref', 'uid', 'name', 'phone', 'email', 'address', 'note', 'items', 'subtotal',
-          'deliveryFee', 'discount', 'status', 'source', 'paymentStatus', 'createdAt'])
-        && d.ref is string && d.ref.size() > 0 && d.ref.size() <= 24
-        && d.uid == ''
-        && d.name is string && d.name.size() > 0 && d.name.size() <= 100
-        && d.phone is string && d.phone.size() >= 10 && d.phone.size() <= 20
-        && d.email is string && d.email.size() <= 200
-        && d.address is string && d.address.size() <= 500
-        && d.note is string && d.note.size() <= 1000
-        && d.items is list && d.items.size() > 0 && d.items.size() <= 20
-        && d.subtotal is number && d.subtotal >= 0 && d.subtotal <= 1000000
-        && d.deliveryFee == 0 && d.discount == 0
-        && d.status == 'new' && d.source == 'website' && d.paymentStatus == 'unpaid'
-        && d.createdAt == request.time;
-    }
-
+    // Every order (guest or student) is placed through the server (app/order-actions.ts); admins manage them here.
     match /orders/{id} {
-      allow create: if isAdmin() || validWebOrder();
-      allow read, update, delete: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
     // ── Inbox ──────────────────────────────────────────────────

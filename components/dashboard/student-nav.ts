@@ -1,4 +1,4 @@
-import { BookMarked, BookOpen, CalendarDays, ClipboardCheck, CreditCard, FileStack, FolderOpen, LayoutDashboard, ListChecks, Megaphone, TrendingUp, UserRound } from "lucide-react";
+import { BookMarked, BookOpen, CalendarDays, ClipboardCheck, CreditCard, FileStack, FolderOpen, LayoutDashboard, ListChecks, Megaphone, Timer, TrendingUp, UserRound } from "lucide-react";
 import type { NavGroup } from "./frame";
 
 export const studentNav: NavGroup[] = [
@@ -7,6 +7,7 @@ export const studentNav: NavGroup[] = [
     items: [
       { label: "Overview", href: "/dashboard", icon: LayoutDashboard, description: "Your next class, batch and centre at a glance." },
       { label: "Schedule", href: "/dashboard/schedule", icon: CalendarDays, description: "Your weekly class timetable and centre details." },
+      { label: "Quizzes", href: "/dashboard/quizzes", icon: Timer, description: "Online tests from your teacher — take them before they close, then see the answers." },
       { label: "Homework", href: "/dashboard/homework", icon: BookMarked, description: "Tasks from your teacher — submit before the due date and see your feedback." },
       { label: "Announcements", href: "/dashboard/announcements", icon: Megaphone, description: "Notices from your teacher — schedule changes, exams and results." },
       { label: "Study materials", href: "/dashboard/materials", icon: FolderOpen, description: "Notes, worksheets, past papers and videos for your class and batch." },

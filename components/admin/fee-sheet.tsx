@@ -9,8 +9,10 @@ import { db } from "@/lib/firebase";
 import { waLink } from "@/lib/phone";
 import { bdt, defaultMonthlyFee, feeMessage, monthLabel, sheetPaymentId, todayISO, tuitionStatus, type Payment } from "@/lib/payments";
 import { rosterFor } from "@/lib/roster";
+import { paymentLines } from "@/lib/settings";
 import type { Batch, ClassLevel, UserProfile } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useSiteSettings } from "./use-settings";
 import { adminInput, Drawer, DrawerBody, DrawerFooter, drawerFormClass, EmptyState, ErrorText, Field, Segmented } from "./ui";
 
 type Row = {
@@ -53,6 +55,7 @@ export function FeeSheet({
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [error, setError] = useState("");
   const [messaging, setMessaging] = useState<{ row: Row; amount: number; paid: boolean } | null>(null);
+  const settings = useSiteSettings();
 
   const running = batches.filter((b) => b.status !== "closed");
   const classBatches = klass ? running.filter((b) => b.classLevel === klass) : [];
@@ -67,7 +70,7 @@ export function FeeSheet({
   );
 
   const key = (r: Row) => `${month}:${r.user.uid}`;
-  const defaultFee = (r: Row) => defaultMonthlyFee(r.batch.classLevel || r.user.classLevel);
+  const defaultFee = (r: Row) => defaultMonthlyFee(r.batch.classLevel || r.user.classLevel, settings.fees);
   const amountText = (r: Row) => typed[key(r)] ?? String(r.sheet?.amount ?? defaultFee(r));
   const amountOf = (r: Row) => Number(amountText(r));
   const isPaid = (r: Row) => {
@@ -308,7 +311,7 @@ export function FeeSheet({
       </div>
 
       <Drawer open={Boolean(messaging)} title="WhatsApp message" onClose={() => setMessaging(null)}>
-        {messaging && <MessageForm key={key(messaging.row)} {...messaging} month={month} onDone={() => setMessaging(null)} />}
+        {messaging && <MessageForm key={key(messaging.row)} {...messaging} month={month} payment={paymentLines(settings.payment)} onDone={() => setMessaging(null)} />}
       </Drawer>
     </div>
   );
@@ -316,11 +319,11 @@ export function FeeSheet({
 
 type Recipient = "parent" | "student";
 
-function MessageForm({ row, amount, paid, month, onDone }: { row: Row; amount: number; paid: boolean; month: string; onDone: () => void }) {
+function MessageForm({ row, amount, paid, month, payment, onDone }: { row: Row; amount: number; paid: boolean; month: string; payment: string[]; onDone: () => void }) {
   const { user, batch } = row;
   const [to, setTo] = useState<Recipient>(user.parentPhone ? "parent" : "student");
   const [kind, setKind] = useState<"receipt" | "reminder">(paid ? "receipt" : "reminder");
-  const build = (k: "receipt" | "reminder") => feeMessage({ studentName: user.name, batch, month, amount, paid: k === "receipt" });
+  const build = (k: "receipt" | "reminder") => feeMessage({ studentName: user.name, batch, month, amount, paid: k === "receipt", payment });
   const [text, setText] = useState(() => build(kind));
   const phone = to === "parent" ? user.parentPhone : user.phone;
 

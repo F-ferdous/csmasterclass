@@ -3,8 +3,9 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { ButtonLink } from "@/components/ui/button";
 import { TestimonialCarousel } from "./testimonials";
 import { results } from "@/lib/content";
+import type { Testimonial } from "@/lib/settings";
 
-export function SuccessPreview() {
+export function SuccessPreview({ testimonials }: { testimonials: Testimonial[] }) {
   return (
     <section className="container-x py-20 sm:py-28">
       <SectionHeader
@@ -13,10 +14,12 @@ export function SuccessPreview() {
         intro="Grades matter — but the real result is a student who believes they can figure things out. Here is what that looks like."
       />
 
-      <div className="mt-14 grid gap-5 lg:grid-cols-[1.35fr_1fr]">
-        <Reveal>
-          <TestimonialCarousel />
-        </Reveal>
+      <div className={testimonials.length ? "mt-14 grid gap-5 lg:grid-cols-[1.35fr_1fr]" : "mt-14 grid gap-5"}>
+        {testimonials.length > 0 && (
+          <Reveal>
+            <TestimonialCarousel testimonials={testimonials} />
+          </Reveal>
+        )}
         <Stagger className="grid gap-5">
           {results.map((r) => (
             <StaggerItem key={r.label}>
